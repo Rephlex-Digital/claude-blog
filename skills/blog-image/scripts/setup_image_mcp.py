@@ -112,7 +112,8 @@ def check_setup(use_global: bool) -> bool:
         if MCP_NAME in servers:
             env = servers[MCP_NAME].get("env", {})
             key = env.get("GOOGLE_AI_API_KEY", "")
-            masked = key[:8] + "..." + key[-4:] if len(key) > 12 else "(not set)"
+            # Closes audit VULN-032: don't leak last-4 of API key. Length-only.
+            masked = f"<{len(key)} chars, set>" if key else "(not set)"
             print(f"MCP server '{MCP_NAME}' found in {label}.")
             print(f"  Path:    {path}")
             print(f"  Package: {MCP_PACKAGE}")

@@ -148,10 +148,12 @@ def main() -> int:
                 f"{key} (env var placeholder - ensure this variable is exported in your shell)",
             ))
         else:
+            # Closes audit VULN-032: length-only display, no prefix/suffix leak.
+            display = f"<{len(key)} chars, set>" if key_set else "(empty)"
             results.append(check(
                 "GOOGLE_AI_API_KEY is set",
                 key_set,
-                f"{key[:8]}...{key[-4:]}" if len(key) > 12 else key or "(empty)",
+                display,
             ))
 
         # 7. Model configured (optional - package has a default)

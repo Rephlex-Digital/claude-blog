@@ -152,8 +152,11 @@ After completing the full draft, before returning content:
    - Verify no paragraph exceeds 150 words (hard limit)
    - Check for passive voice clusters -- rewrite to active
    - Replace jargon with plain alternatives where possible
-2. If `analyze_blog.py` is accessible, run a quick check:
+2. Recommend the orchestrator run a quick check (this agent does NOT have
+   the Bash tool, so the check is delegated): the orchestrator can invoke
    `python3 ~/.claude/skills/blog/scripts/analyze_blog.py <draft_file> --category content`
+   and feed the score back to refine the draft. Closes audit VULN-033:
+   prior text instructed shell execution that the agent cannot perform.
 3. If readability sub-score is below 5/7, revise before returning:
    - Split sentences over 25 words
    - Break paragraphs over 100 words
