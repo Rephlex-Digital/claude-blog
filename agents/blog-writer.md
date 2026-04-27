@@ -154,9 +154,13 @@ After completing the full draft, before returning content:
    - Replace jargon with plain alternatives where possible
 2. Recommend the orchestrator run a quick check (this agent does NOT have
    the Bash tool, so the check is delegated): the orchestrator can invoke
-   `python3 ~/.claude/skills/blog/scripts/analyze_blog.py <draft_file> --category content`
-   and feed the score back to refine the draft. Closes audit VULN-033:
-   prior text instructed shell execution that the agent cannot perform.
+   the analyze script with the draft. The script is installed at
+   `~/.claude/skills/blog/scripts/analyze_blog.py` after running install.sh
+   (or at `scripts/analyze_blog.py` from a source clone). Pass
+   `--category content` to focus on the readability sub-score. The
+   orchestrator feeds the score back to refine the draft. Closes audit
+   VULN-033: prior text instructed shell execution that the agent cannot
+   perform; meta-audit follow-up clarified the dual install path location.
 3. If readability sub-score is below 5/7, revise before returning:
    - Split sentences over 25 words
    - Break paragraphs over 100 words

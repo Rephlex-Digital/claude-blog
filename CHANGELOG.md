@@ -7,6 +7,126 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.1] - 2026-04-27
+
+### Security audit + remediation arc (10 commits, all CRITICAL + HIGH closed)
+
+The 2026-04-27 cybersecurity audit (via `/cybersecurity` skill) identified
+1 CRITICAL + 5 HIGH + 14 MEDIUM + 11 LOW + 8 INFO findings (39 total).
+This release closes all of them across 10 focused commits.
+
+#### Security (Critical / High)
+- **CRITICAL VULN-001**: `setup_image_mcp.py` defaulted to project-local
+  `.mcp.json` (which was tracked) and wrote literal `GOOGLE_AI_API_KEY`.
+  Default flipped to `--global` (writes user-private `~/.claude/settings.json`,
+  mode 0600); `--project` opts in to env-expansion-only mode and refuses to
+  write into a tracked file.
+- **HIGH**: `.mcp.json` removed from git tracking, added to `.gitignore`;
+  new tracked `.mcp.example.json` template with env-expansion + pinned
+  `@ycse/nanobanana-mcp@1.1.1`.
+- **HIGH**: `_save_oauth_token` and NotebookLM `_save_browser_state` now
+  use atomic write + `chmod 0o600`. `_harden_perms` helper applied to
+  every credential-write site.
+- **HIGH**: OAuth flow gains CSRF state token via `secrets.token_urlsafe`,
+  validated in handler with 403 on mismatch. Listener bound to 127.0.0.1.
+- **HIGH**: 4 hash-pinned lock files (1915 LoC) for all pip manifests via
+  `pip-compile --generate-hashes --strip-extras --allow-unsafe`.
+- **HIGH**: README install ordering reframed (clone+checkout-tag now
+  recommended; curl-pipe-bash documented as convenience with trust caveat).
+
+#### Security (Medium)
+- OAuth scopes downgraded to per-command least-privilege (`gsc_readonly +
+  ga4` default; `--scopes` flag for explicit elevation).
+- `--no-sandbox` removed from NotebookLM Chromium launch (env opt-in only).
+- `sync_flow.py` lockfile drift now BLOCKS via `sys.exit(2)` unless
+  `--allow-drift` explicitly passed; drift fires before filesystem mutation.
+- `google_report.py` `--domain` whitelist regex + path containment check.
+- CI workflow gains top-level `permissions: contents: read`, concurrency
+  cancel-in-progress, and `pip install -e ".[dev]"` (was unpinned).
+- Dependabot adds 3 nested-manifest entries (was missing 80% of dep surface).
+- `pyproject.toml` advanced extras now bounded; new `[ads]` group declares
+  previously-phantom `google-ads` dep.
+- GitHub Actions SHA-pinned (`actions/checkout` + `actions/setup-python`).
+
+#### Security (Low / INFO)
+- `traceback.print_exc()` in NotebookLM error path replaced with clean
+  error; verbose trace gated behind `BLOG_DEBUG` env.
+- 6 bare `except:` blocks changed to `except Exception:` so signals
+  propagate.
+- `__init__.py` import-time side effects removed (no more silent
+  venv.create + Chrome download on test discovery).
+- API key masking changed from `key[:8]+...+key[-4:]` to length-only.
+- Unexecutable Bash instruction removed from `blog-writer` agent prompt.
+- `uninstall.sh` and `uninstall.ps1` now glob `blog-*` (was static list
+  missing v1.7.0 sub-skills) and purge `~/.config/claude-seo/` credentials.
+- CLI input length caps on `ask_question.py` and `notebook_manager.py`.
+
+#### PowerShell 5.1 compatibility (post-audit pushback)
+- `install.ps1` + `uninstall.ps1` 3-arg `Join-Path` calls (PS 6.0+ only)
+  rewritten as nested 2-arg form. Default Windows 10/11 ships PS 5.1; the
+  prior code would fail with "A positional parameter cannot be found"
+  on every install attempt.
+- The `??` null-coalescing operator (also PS 6.0+) was already removed
+  in an earlier hotfix commit (96ef396).
+
+#### Tests
+- `test_google_auth_write_secret_atomic_sets_mode_0600`: behavioral test
+  loading the helper via `importlib.spec_from_file_location` + `tmp_path`.
+- `test_notebooklm_credential_files_contain_chmod_hardening`: static test
+  requiring `_harden_perms(` count >= 2 (def + at least 1 call).
+- `test_mcp_json_is_gitignored`: regression gate for `.gitignore` entry.
+- `test_user_invokable_skills_have_complete_frontmatter` (NEW): asserts
+  every user-invokable SKILL.md has `description`, `argument-hint`, and
+  `license` fields. Closes the verifier blind spot that allowed
+  blog-rewrite (and 14 other skills) to ship without these fields.
+
+#### Docs
+- New comprehensive `SECURITY.md`: vulnerability disclosure flow, in/out
+  of scope, T1-T11 trust boundaries with STRIDE, dual-use technology notes
+  (patchright stealth-fork rationale, WebFetch indirect prompt injection
+  risk model, sync_flow defenses), audit history, hardening checklist.
+- `docs/MCP-INTEGRATION.md` updated with new `--global` default flow.
+- `skills/blog-image/SKILL.md` setup section reflects new defaults +
+  pinning convention.
+- `docs/COMMANDS.md` updated to cover all 27 user commands (was 17).
+- `agents/blog-researcher.md` adds explicit prompt-injection framing for
+  WebFetch / WebSearch content (T9 boundary defense).
+- `agents/blog-writer.md` clarifies dual install path for analyze script.
+
+#### Dependencies
+- Generated 4 hash-pinned lock files (`requirements.lock` at root +
+  3 nested `skills/*/scripts/requirements.lock`). All install paths
+  via `setup_environment.py` now prefer `--require-hashes -r .lock`
+  when present.
+- pyproject.toml: bound previously-unbounded `advanced` extras (`lxml`,
+  `jsonschema`, `spacy`, `sentence-transformers`, `scikit-learn`,
+  `language-tool-python`); synced `core` upper bounds with
+  `requirements.txt`; added `[ads]` optional group with `google-ads`.
+
+#### Skills (frontmatter completeness)
+- All 27 user-invokable SKILL.md files now declare `argument-hint` and
+  `license: MIT` consistently. Caught by full-skill test pass + 9-agent
+  meta-audit; previously 15 skills were missing one or both fields.
+
+### Audit + meta-audit dispatch summary
+- 7-agent cybersecurity audit dispatch (parallel, single message)
+- 28-agent full-skill test dispatch (one per sub-skill, parallel)
+- 9-agent meta-audit (re-audit the audit + fix arc)
+- Independent code-reviewer agent caught 5 issues post-commit (build-system
+  missing, bare-filename crash, PS 5.1 incompatibility, weak test, missing
+  ValueError handler) -> hotfix commit applied.
+- Codex GPT-5.5 high-reasoning council used 4 times for plan validation;
+  each returned APPROVE-WITH-CHANGES with substantive corrections that
+  materially improved the plan.
+
+### Open follow-ups (not release-blocking)
+- `blog-write/SKILL.md` Phase 5 extraction: currently 535 lines, ideal
+  is < 500. Extract Phase 5 to a reference file in next iteration.
+- `sentence-transformers` upper bound `<5.0.0` is one major behind current
+  5.4.1; re-evaluate when next minor lands.
+- E-E-A-T overlap consolidation across `eeat-signals.md`, `geo-optimization.md`,
+  `quality-scoring.md` (architectural).
+
 ## [1.7.0] - 2026-04-27
 
 ### Pro Hub Challenge community release + FLOW framework integration
