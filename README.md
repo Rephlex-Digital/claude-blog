@@ -47,19 +47,26 @@ claude-blog is a Claude Code skill ecosystem for creating, optimizing, and manag
 /plugin install claude-blog@AgriciDaniel-claude-blog
 ```
 
-**One-command install (Unix/macOS):**
+**Recommended: clone then verify before installing** (lets you inspect
+install.sh and pin a release tag — closes audit VULN-005):
+
+```bash
+git clone https://github.com/AgriciDaniel/claude-blog.git
+cd claude-blog
+git checkout v1.7.0          # pin to a release tag
+chmod +x install.sh && ./install.sh
+```
+
+**Convenience one-command install (Unix/macOS, only if you trust the
+upstream `AgriciDaniel/claude-blog` GitHub account):**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-blog/main/install.sh | bash
 ```
 
-**Or clone and install manually:**
-
-```bash
-git clone https://github.com/AgriciDaniel/claude-blog.git
-cd claude-blog
-chmod +x install.sh && ./install.sh
-```
+> Note: piping curl to bash gives the script execution authority on your
+> machine. The clone-then-checkout-tag flow above is safer because you
+> can inspect what runs.
 
 **Windows (PowerShell):**
 ```powershell

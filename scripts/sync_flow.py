@@ -85,6 +85,13 @@ def parse_args():
         metavar="SHA",
         help="Pin fetches to a FLOW commit SHA.",
     )
+    parser.add_argument(
+        "--allow-drift",
+        action="store_true",
+        help="Permit lockfile drift (default: refuse to write when synced "
+        "content hashes do not match flow-prompts.lock). Required when bumping "
+        "the FLOW reference; review the diff carefully before passing this flag.",
+    )
     return parser.parse_args()
 
 
@@ -321,11 +328,19 @@ def sync(args):
     changes = {"added": [], "updated": [], "unchanged": [], "hashes": {}}
     prompt_rows = []
 
+    # Phase 1: fetch and stage all content in memory. Compute would-be hashes
+    # without writing, so the drift check can fire BEFORE any filesystem
+    # mutation (audit VULN-018).
+    pending = []  # list of (target_path, content) tuples
+
     for source, target in STATIC_FILES:
         print(f"fetch: {source}", file=sys.stderr)
         raw = fetch_file(source, args.ref, headers)
         content = inject_license_header(raw, today)
-        record_write(root, refs, refs / target, content, args.dry_run, changes)
+        target_path = refs / target
+        pending.append((target_path, content))
+        rel = target_path.relative_to(root).as_posix()
+        changes["hashes"][rel] = _sha256(content)
 
     for stage in PROMPT_STAGES:
         source_dir = f"docs/09-prompts/{stage}"
@@ -334,21 +349,87 @@ def sync(args):
             print(f"fetch: {source}", file=sys.stderr)
             raw = fetch_file(source, args.ref, headers)
             prompt_rows.append(prompt_meta(stage, filename, raw))
-            target = refs / "prompts" / stage / filename
+            target_path = refs / "prompts" / stage / filename
             content = inject_license_header(raw, today)
-            record_write(root, refs, target, content, args.dry_run, changes)
+            pending.append((target_path, content))
+            rel = target_path.relative_to(root).as_posix()
+            changes["hashes"][rel] = _sha256(content)
 
-    record_write(
-        root,
-        refs,
-        refs / "prompts" / "README.md",
-        inject_license_header(prompt_readme(prompt_rows), today),
-        args.dry_run,
-        changes,
-    )
+    readme_path = refs / "prompts" / "README.md"
+    readme_content = inject_license_header(prompt_readme(prompt_rows), today)
+    pending.append((readme_path, readme_content))
+    readme_rel = readme_path.relative_to(root).as_posix()
+    changes["hashes"][readme_rel] = _sha256(readme_content)
 
-    # Generate SHA-256 lockfile.
+    # Phase 2: compute lockfile drift against the staged hashes (pre-write).
     lock_path = root / LOCK_REL
+    drift_lines = []
+    if lock_path.exists():
+        old_lock = lock_path.read_text(encoding="utf-8")
+        old_hashes = {}
+        for line in old_lock.splitlines():
+            if line and not line.startswith("#"):
+                parts = line.split("  ", 1)
+                if len(parts) == 2:
+                    old_hashes[parts[1]] = parts[0]
+        for rel, sha in sorted(changes["hashes"].items()):
+            old_sha = old_hashes.get(rel)
+            if old_sha is None:
+                drift_lines.append(f"ADDED   {rel}")
+            elif old_sha != sha:
+                drift_lines.append(f"CHANGED {rel}")
+        for rel in sorted(old_hashes):
+            if rel not in changes["hashes"]:
+                drift_lines.append(f"REMOVED {rel}")
+
+    # Phase 3: enforce drift policy BEFORE any writes happen.
+    if drift_lines and not args.dry_run and not args.allow_drift:
+        print(
+            "ERROR: Lockfile drift detected. The synced content hashes do not "
+            "match flow-prompts.lock.",
+            file=sys.stderr,
+        )
+        print(
+            "Review the upstream changes carefully before bumping the lockfile.",
+            file=sys.stderr,
+        )
+        print(
+            "If the changes are legitimate, re-run with --allow-drift.",
+            file=sys.stderr,
+        )
+        print("Drift report:", file=sys.stderr)
+        for line in drift_lines:
+            print(f"  {line}", file=sys.stderr)
+        sys.exit(2)
+    elif drift_lines and args.allow_drift:
+        print(
+            "NOTE: Lockfile drift detected. Proceeding because --allow-drift "
+            "was explicitly passed.",
+            file=sys.stderr,
+        )
+        for line in drift_lines:
+            print(f"  {line}", file=sys.stderr)
+    elif drift_lines and args.dry_run:
+        print(
+            "DRY-RUN: Lockfile drift detected (informational, no exit):",
+            file=sys.stderr,
+        )
+        for line in drift_lines:
+            print(f"  {line}", file=sys.stderr)
+    elif lock_path.exists():
+        print(
+            "Lockfile: no drift (all hashes match baseline)",
+            file=sys.stderr,
+        )
+
+    # Phase 4: write all staged content to disk. The hash for each file was
+    # already recorded in Phase 1, so we drop record_write's hash-recording
+    # side effect by passing a throwaway dict for the hashes slot. We keep the
+    # added/updated/unchanged bookkeeping by reusing `changes`.
+    for target_path, content in pending:
+        record_write(root, refs, target_path, content, args.dry_run, changes)
+
+    # Phase 5: build and write the lockfile from the now-finalized hashes.
     lock_lines = [
         "# flow-prompts.lock. SHA-256 baseline for synced FLOW prompts.",
         f"# Ref: {args.ref or 'HEAD'} | format: <sha256hex>  <rel_path> "
@@ -358,35 +439,6 @@ def sync(args):
     for rel in sorted(changes["hashes"]):
         lock_lines.append(f"{changes['hashes'][rel]}  {rel}")
     lock_content = "\n".join(lock_lines) + "\n"
-
-    # Diff against existing lockfile and print drift report.
-    if lock_path.exists():
-        old_lock = lock_path.read_text(encoding="utf-8")
-        old_hashes = {}
-        for line in old_lock.splitlines():
-            if line and not line.startswith("#"):
-                parts = line.split("  ", 1)
-                if len(parts) == 2:
-                    old_hashes[parts[1]] = parts[0]
-        drift = []
-        for rel, sha in sorted(changes["hashes"].items()):
-            old_sha = old_hashes.get(rel)
-            if old_sha is None:
-                drift.append(f"  ADDED   {rel}")
-            elif old_sha != sha:
-                drift.append(f"  CHANGED {rel}")
-        for rel in sorted(old_hashes):
-            if rel not in changes["hashes"]:
-                drift.append(f"  REMOVED {rel}")
-        if drift:
-            print("Lockfile drift detected:", file=sys.stderr)
-            for line in drift:
-                print(line, file=sys.stderr)
-        else:
-            print(
-                "Lockfile: no drift (all hashes match baseline)",
-                file=sys.stderr,
-            )
 
     # Write lockfile (excluded from its own hashes tracking).
     record_write(root, refs, lock_path, lock_content, args.dry_run, changes)

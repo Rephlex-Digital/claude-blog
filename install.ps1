@@ -117,20 +117,25 @@ function Main {
     Write-Color White "Installing scripts..."
     Copy-Item (Join-Path $ScriptDir "scripts" "analyze_blog.py") (Join-Path $SkillDir "blog" "scripts" "analyze_blog.py") -Force
 
-    # Install Python dependencies
+    # Install Python dependencies (closes audit VULN-507/804: capture stderr
+    # to a logfile instead of swallowing it).
     Write-Color White "Installing Python dependencies..."
     $reqFile = Join-Path $ScriptDir "requirements.txt"
     if (Test-Path $reqFile) {
-        try {
-            & python3 -m pip install --quiet -r $reqFile 2>$null
-            Write-Color Green "  Python dependencies installed."
-        } catch {
-            try {
-                & python -m pip install --quiet -r $reqFile 2>$null
+        $pipLog = Join-Path ([System.IO.Path]::GetTempPath()) "claude-blog-pip-$([System.Guid]::NewGuid().ToString('N').Substring(0,8)).log"
+        $pipCmd = (Get-Command python3 -ErrorAction SilentlyContinue) ?? (Get-Command python -ErrorAction SilentlyContinue)
+        if ($pipCmd) {
+            $proc = Start-Process -FilePath $pipCmd.Source -ArgumentList @("-m","pip","install","--quiet","-r",$reqFile) -RedirectStandardError $pipLog -NoNewWindow -Wait -PassThru
+            if ($proc.ExitCode -eq 0) {
                 Write-Color Green "  Python dependencies installed."
-            } catch {
-                Write-Color Yellow "  Skipped: Install manually with 'pip install -r requirements.txt'"
+                Remove-Item -Force $pipLog -ErrorAction SilentlyContinue
+            } else {
+                Write-Color Yellow "  WARNING: pip install failed (exit $($proc.ExitCode))."
+                Write-Color Yellow "  See log: $pipLog"
+                Write-Color Yellow "  Manual install: pip install -r requirements.txt"
             }
+        } else {
+            Write-Color Yellow "  Skipped: Python not found. Manual install: pip install -r requirements.txt"
         }
     }
 

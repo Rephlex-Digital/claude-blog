@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main, master]
 
+# Least-privilege token (closes audit VULN-501). Override per-job if needed.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to save runner minutes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -22,9 +31,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
+        # Use the dev extras group so PR builds resolve identically to local
+        # development. The pyproject.toml `dev` group pins pytest, textstat,
+        # and beautifulsoup4 within bounded ranges (closes audit VULN-502).
         run: |
           python -m pip install --upgrade pip
-          pip install pytest textstat beautifulsoup4
+          pip install -e ".[dev]"
 
       - name: Run tests
         run: python -m pytest tests/ -v

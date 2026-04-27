@@ -104,11 +104,20 @@ main() {
     cp "${SCRIPT_DIR}/scripts/analyze_blog.py" "${SKILL_DIR}/blog/scripts/analyze_blog.py"
     chmod +x "${SKILL_DIR}/blog/scripts/analyze_blog.py"
 
-    # Install Python dependencies
+    # Install Python dependencies (closes audit VULN-507/804: capture stderr
+    # to a logfile instead of swallowing it. Operator can diagnose failures.)
     if [ -f "${SCRIPT_DIR}/requirements.txt" ] && command -v pip3 &>/dev/null; then
         echo "→ Installing Python dependencies..."
-        pip3 install --quiet -r "${SCRIPT_DIR}/requirements.txt" 2>/dev/null || \
-        echo "  Skipped: Install manually with 'pip3 install -r requirements.txt'"
+        local pip_log
+        pip_log="$(mktemp -t claude-blog-pip-XXXXXX.log)"
+        if pip3 install --quiet -r "${SCRIPT_DIR}/requirements.txt" 2>"${pip_log}"; then
+            rm -f "${pip_log}"
+        else
+            echo "  WARNING: pip install failed."
+            echo "  See log: ${pip_log}"
+            echo "  First error: $(head -n1 "${pip_log}" 2>/dev/null || echo '(empty)')"
+            echo "  Manual install: pip3 install -r requirements.txt"
+        fi
         echo "  Tip: Consider using a virtual environment: python3 -m venv .venv && source .venv/bin/activate"
     fi
 
