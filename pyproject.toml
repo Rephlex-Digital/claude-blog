@@ -50,7 +50,7 @@ ads = [
     # Optional: enables skills/blog-google/scripts/keyword_planner.py.
     # Closes audit VULN-404 phantom-import (was previously imported with no
     # manifest declaration).
-    "google-ads>=22.0.0,<26.0.0",
+    "google-ads>=22.0.0,<31.0.0",
 ]
 dev = [
     "pytest>=8.0,<9.0",
