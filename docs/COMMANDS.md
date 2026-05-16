@@ -1,6 +1,6 @@
 # Command Reference
 
-Complete reference for all 27 `/blog` slash commands (28 sub-skills total;
+Complete reference for all 29 `/blog` slash commands (30 sub-skills total;
 `blog-chart` is internal-only, invoked from blog-write/blog-rewrite).
 Every command is invoked through the main orchestrator
 (`skills/blog/SKILL.md`), which routes to the appropriate sub-skill.
@@ -735,25 +735,39 @@ The main orchestrator (`skills/blog/SKILL.md`) parses user input and routes to
 the correct sub-skill:
 
 ```
-User Input                        Routes To
------------                       ---------
-/blog write <topic>           --> blog-write
-/blog rewrite <file>          --> blog-rewrite
-/blog analyze <file-or-url>   --> blog-analyze
-/blog audit <file-or-url>     --> blog-analyze
-/blog brief <topic>           --> blog-brief
-/blog calendar [period]       --> blog-calendar
-/blog plan [period]           --> blog-calendar
-/blog strategy <niche>        --> blog-strategy
-/blog ideation <niche>        --> blog-strategy
-/blog outline <topic>         --> blog-outline
-/blog seo-check <file>        --> blog-seo-check
-/blog schema <file>           --> blog-schema
-/blog repurpose <file>        --> blog-repurpose
-/blog geo <file>              --> blog-geo
-/blog audit [directory]       --> blog-audit
-/blog image [generate|edit]  --> blog-image
-/blog update <file>           --> blog-rewrite (freshness mode)
+User Input                                  Routes To
+-----------                                 ---------
+/blog write <topic>                     --> blog-write
+/blog rewrite <file>                    --> blog-rewrite
+/blog analyze <file-or-url>             --> blog-analyze
+/blog brief <topic>                     --> blog-brief
+/blog calendar [period]                 --> blog-calendar
+/blog plan [period]                     --> blog-calendar
+/blog strategy <niche>                  --> blog-strategy
+/blog ideation <niche>                  --> blog-strategy
+/blog outline <topic>                   --> blog-outline
+/blog seo-check <file>                  --> blog-seo-check
+/blog schema <file>                     --> blog-schema
+/blog repurpose <file>                  --> blog-repurpose
+/blog geo <file>                        --> blog-geo
+/blog audit [directory]                 --> blog-audit
+/blog image [generate|edit]             --> blog-image
+/blog update <file>                     --> blog-rewrite (freshness mode)
+/blog cannibalization [dir]             --> blog-cannibalization
+/blog factcheck <file>                  --> blog-factcheck
+/blog persona [create|list|use|show]    --> blog-persona
+/blog brand [init|show|update]          --> blog-brand               (v1.8.0)
+/blog discourse <topic>                 --> blog-discourse           (v1.8.0)
+/blog taxonomy [suggest|sync|audit]     --> blog-taxonomy
+/blog notebooklm <question>             --> blog-notebooklm
+/blog audio [generate|voices|setup]     --> blog-audio
+/blog google [command] [args]           --> blog-google
+/blog cluster [plan|execute] <seed>     --> blog-cluster
+/blog multilingual <topic> --languages  --> blog-multilingual
+/blog translate <file> --to             --> blog-translate
+/blog localize <file> --locale          --> blog-localize
+/blog locale-audit <directory>          --> blog-locale-audit
+/blog flow [find|optimize|win|prompts]  --> blog-flow
 ```
 
 If no sub-command is provided, the orchestrator asks which action the user

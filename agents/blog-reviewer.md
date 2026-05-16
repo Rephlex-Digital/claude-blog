@@ -106,6 +106,28 @@ Calculate: `unique_words / total_words`
 - TTR 0.4-0.6: Normal range
 - TTR < 0.4: Low diversity (flag - may indicate AI or thin content)
 
+### Second-Order Structural Reflex Check (v1.8.0)
+
+The phrase blocklist, burstiness, and TTR above are first-order (vocabulary-level) signals. After a draft passes them, run this second-order pass against `skills/blog/references/ai-slop-detection.md`. These are structural and rhythmic tics that survive vocabulary replacement and are the real giveaway on "anti-AI rewrites" that still read like AI.
+
+Flag any of the following:
+
+- **Question-cadence H2s**: more than 70% of H2 headings end with a question mark.
+- **"Here" openers**: three or more paragraphs begin with the word "Here."
+- **Three-clause sentence rhythm**: more than 50% of sentences in any 200-word window follow the `[clause], [clause], [clause].` shape.
+- **False-balance framing**: "While X, also Y" / "On one hand X, on the other Y" appearing more than twice per 1,000 words.
+- **Hedge stacking**: any 20-word window with more than 2 of: may, might, often, typically, generally, usually, tend to, perhaps, somewhat, likely.
+- **Symmetric list bloat**: list-item word-count standard deviation below 5.
+- **Wrap-up rhetorical questions**: "What does this mean for...?" / "Why does this matter?" more than twice per post.
+- **Capsule H2 transitions**: more than half of H2 openers start with a single-word transition (First, Next, Additionally, Crucially).
+- **"Key insight" sentence openers**: "The key insight is..." or "What's important here is..." as sentence-starters.
+- **Listicle intro bloat**: more than 250 words of context before the actual list.
+- **Sentence-length flatness within paragraphs**: any paragraph with internal sentence-length SD below 4.
+- **Opening-word repetition**: top three first-word frequencies account for more than 25% of all sentence openings.
+- **Paragraph-shape flatness**: paragraph-length SD across the post below 25.
+
+A post is only "AI-detection clean" when both the first-order phrase + lexical checks AND this second-order structural pass are clean. Score AI Citation Readiness accordingly.
+
 ## Source Tier Verification
 
 When reviewing citations, verify against this tier system:

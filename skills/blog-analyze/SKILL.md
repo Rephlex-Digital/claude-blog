@@ -21,16 +21,26 @@ Scores blog posts on a 0-100 scale across 5 categories and provides prioritized
 improvement recommendations. Includes AI content detection analysis. Works with
 local files or published URLs.
 
-Reference documents:
-- `references/quality-scoring.md` -- full scoring checklist
-- `references/eeat-signals.md` -- E-E-A-T evaluation criteria
+Reference documents (paths from repo root):
+- `skills/blog/references/quality-scoring.md` -- full scoring checklist
+- `skills/blog/references/eeat-signals.md` -- E-E-A-T evaluation criteria
+- `skills/blog/references/ai-slop-detection.md` -- two-tier reflex methodology (v1.8.0)
+- `skills/blog/references/editorial-heuristics.md` -- ordinal 0-4 rubric, P0-P3 severity (v1.8.0, used with `--rubric`)
+- `skills/blog/references/cognitive-load.md` -- per-section concept density (v1.8.0, used with `--cognitive-load`)
 
 ## Input Handling
 
 - **Local file**: Read the file directly
 - **URL**: Fetch with WebFetch, extract content
 - **Directory**: Scan for blog files, audit all (batch mode)
-- **Flags**: `--format json|table`, `--batch`, `--sort score`
+- **Flags**: `--format json|table`, `--batch`, `--sort score`, `--rubric`, `--cognitive-load`
+
+### Optional Modes (v1.8.0)
+
+- `--rubric`: in addition to the 100-point score, emit the ordinal 0-4 editorial-heuristics rubric with P0-P3 severity tags. See `skills/blog/references/editorial-heuristics.md`. The 100-point JSON schema is preserved; the rubric is added as a sibling `rubric` field.
+- `--cognitive-load`: run `scripts/cognitive_load.py` against the post and embed the per-section load heatmap as a sibling `cognitive_load` field. See `skills/blog/references/cognitive-load.md`.
+
+Both modes are additive. The default behavior (no flags) is unchanged from v1.7.1.
 
 ## Scoring Process
 
@@ -165,6 +175,36 @@ Analyze the post for AI-generated content risk:
 | 70-79 | Acceptable | Targeted improvements needed |
 | 60-69 | Below Standard | Significant rework required |
 | < 60 | Rewrite | Fundamental issues, start from outline |
+
+### Step 4.5: Optional Ordinal Rubric (--rubric)
+
+When `--rubric` is passed, additionally score the post on the 10 editorial heuristics defined in `skills/blog/references/editorial-heuristics.md`. Each heuristic gets a 0-4 score and a severity tag (P0 / P1 / P2 / P3 / none).
+
+The rubric does NOT replace the 100-point score. It runs alongside and surfaces which findings are blocking versus which are polish.
+
+Output the rubric as either:
+- Markdown table (default) appended to the main report under a `### Editorial Heuristics Rubric` heading.
+- JSON `rubric` field when `--format json` is in use.
+
+Rubric JSON schema:
+```json
+{
+  "rubric": {
+    "heuristics": [
+      { "id": 1, "name": "Visibility of intent", "score": 3, "severity": "P2", "note": "Summary box generic" },
+      ...
+    ],
+    "p0_count": 0,
+    "p1_count": 1,
+    "p2_count": 2,
+    "p3_count": 3
+  }
+}
+```
+
+### Step 4.6: Optional Cognitive Load Heatmap (--cognitive-load)
+
+When `--cognitive-load` is passed, run `scripts/cognitive_load.py <file> --format json` and embed the result under a `cognitive_load` field in JSON output, or append a `### Cognitive Load Heatmap` markdown section in markdown output. See `skills/blog/references/cognitive-load.md` for thresholds and interpretation.
 
 ### Step 5: Generate Report
 

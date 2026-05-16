@@ -77,6 +77,28 @@ plugin straddles. Findings against any of these are in scope:
 | T9 | WebFetch/WebSearch results entering Claude instruction context | indirect prompt injection |
 | T10 | Package-manager runtime (`pip`, `npx -y`, `patchright install`) | binary substitution, runtime CVE |
 | T11 | `sync_flow.py` upstream FLOW corpus (instruction surface) | upstream tamper, indirect prompt injection |
+| T12 | Project-root files (`BRAND.md`, `VOICE.md`, `DISCOURSE.md`) auto-loaded into orchestrator system prompt (v1.8.0) | indirect prompt injection via poisoned project repo |
+
+### T12 detail (added in v1.8.0)
+
+When a user runs `/blog write`, `/blog rewrite`, `/blog brief`, `/blog strategy`, `/blog outline`, `/blog calendar`, `/blog analyze`, `/blog audit`, `/blog geo`, `/blog cluster`, or `/blog multilingual` in a project directory, the orchestrator (`skills/blog/SKILL.md`) auto-loads three optional project-root files when they exist:
+
+- `BRAND.md`: audience, positioning, taboo phrases, topic scope (produced by `/blog brand init`)
+- `VOICE.md`: tone, lexical rules, headline patterns (produced by `/blog brand init`)
+- `DISCOURSE.md`: cross-platform discourse brief for a topic (produced by `/blog discourse <topic>`)
+
+These files are USER-CONTROLLED or potentially THIRD-PARTY-CONTROLLED (if a user clones a poisoned content repo with malicious project-root files). They enter the orchestrator's system prompt as context for downstream agents.
+
+The same indirect prompt-injection risk that applies to WebFetch results (T9) applies here. Mitigation, enforced by the orchestrator's "Untrusted-Data Contract" section in `skills/blog/SKILL.md`:
+
+1. **Fenced injection**: file contents are wrapped in explicit `=== BEGIN UNTRUSTED PROJECT-ROOT CONTEXT (file.md) ===` / `=== END ===` markers, with a preamble instructing downstream agents to treat the contents as data, not instructions.
+2. **Pre-injection sanitization scan**: orchestrator scans for instruction-shaped patterns (`ignore previous`, `from now on`, `exfiltrate`, `system:`, `<|im_start|>`, `act as`, etc.). If matched, prepends a warning to the fence and notes the suspected injection in the agent prompt.
+3. **Tool-boundary preservation**: directives in project-root files CANNOT unlock tools the downstream agent does not already have via its frontmatter. An agent without `WebFetch` MUST NOT acquire it because BRAND.md said to.
+4. **Provenance**: file mtime is included in the injection so the agent can reason about freshness ("the BRAND.md I'm reading was modified at timestamp T").
+
+Failure mode this closes: a poisoned BRAND.md from a shared repo could instruct the agent with WebFetch authority to exfiltrate research findings to an attacker-controlled URL. Now that BRAND.md is fenced as untrusted data, the agent recognizes the directive as an injection attempt and refuses to comply.
+
+Recommended user hygiene: add `BRAND.md`, `VOICE.md`, `DISCOURSE.md` to `.gitignore` in repos where the brand context or research is confidential.
 
 ## Dual-use Technology Notes
 

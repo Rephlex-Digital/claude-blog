@@ -27,6 +27,8 @@ and AI citation platforms. Preserves the author's voice while applying the
 - `references/eeat-signals.md` - Experience, expertise, authority, trust markers
 - `references/internal-linking.md` - Linking strategy and anchor text rules
 - `references/visual-media.md` - Image sourcing and chart styling
+- `references/synthesis-contract.md` - 6 LAWs for re-citation hygiene during rewrite (v1.8.0)
+- `references/research-quality.md` - cross-source clustering for replacement-statistic research (v1.8.0)
 
 ## Cross-reference
 
@@ -64,6 +66,22 @@ For 21 evidence-led optimization prompts (AI-detector test, CTR audit, schema, P
    - **AI content percentage estimate** - Based on burstiness, phrase density, and
      TTR, estimate what percentage of the content reads as AI-generated (0-100%).
      Report as: "AI content estimate: ~X%"
+   - **Tier 2 structural reflex scan** (v1.8.0) - The Tier 1 checks above are
+     vocabulary-level. Tier 2 catches what survives them: structural and rhythmic
+     tics LLMs default to after the obvious words are replaced. Run against
+     `skills/blog/references/ai-slop-detection.md`. Flag at minimum:
+     - Question-cadence H2s above 70% of headings
+     - Three or more "Here..." paragraph openers
+     - Three-clause sentence rhythm above 50% in any 200-word window
+     - More than 2 hedge words ("may," "often," "typically," "generally") in any 20-word span
+     - Symmetric-list bloat (list-item word-count SD below 5)
+     - More than 2 wrap-up rhetorical questions ("What does this mean for...?")
+     - More than half of H2 openers starting with a transition word
+     - "The key insight is..." or "What's important here is..." as sentence openers
+     - Listicle pre-list intro above 250 words
+     - Opening-word repetition: top three first-words above 25% share
+     - Paragraph-shape SD below 25 (visual monotony)
+     A draft is only "AI-detection clean" when both tiers pass.
 4. **Video embed check**:
    - Count existing YouTube embeds in the post
    - If 0 embeds, flag: "No video embeds. YouTube has the strongest AI visibility correlation (0.737)"

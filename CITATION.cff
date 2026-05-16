@@ -5,19 +5,29 @@ message: >-
   metadata from this file.
 type: software
 authors:
-  - name: AgriciDaniel
+  - given-names: Daniel
+    family-names: Agrici
     alias: AgriciDaniel
-    website: "https://github.com/AgriciDaniel"
+    website: "https://agricidaniel.com"
 repository-code: "https://github.com/AgriciDaniel/claude-blog"
-url: "https://rankenstein.pro"
+url: "https://claude-blog.md"
 license: MIT
-version: 1.5.0
-date-released: "2026-03-18"
+version: 1.8.0
+date-released: "2026-05-16"
 keywords:
   - claude-code
   - blog
   - seo
+  - geo
+  - aeo
   - ai-citations
   - content-optimization
   - e-e-a-t
   - skill
+  - plugin
+  - mdx
+  - wordpress
+  - multilingual
+  - hreflang
+  - flow-framework
+  - discourse-research

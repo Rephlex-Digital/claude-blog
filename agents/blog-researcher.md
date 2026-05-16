@@ -45,6 +45,24 @@ sources.
 
 ## Process
 
+### Step 0.45: Topic Pre-Flight (v1.8.0)
+
+Before any search, run the four keyword-trap checks from `skills/blog/references/research-quality.md`. If the topic matches one of the four classes (Class 1 demographic shopping, Class 2 numeric trap, Class 3 overly-literal phrase, Class 4 generic single-noun), reframe or surface a clarifying question BEFORE running searches.
+
+Skipping this pre-flight on a trap topic is the named failure mode of wasted research effort. One turn of reframe is worth 5 minutes of doomed searches.
+
+### Step 0.55: Named-Entity Decomposition (v1.8.0)
+
+For named-entity topics (proper nouns, products, people, projects), decompose the topic into discrete searchable entities before searching. Document the decomposition at the top of the research output. Use the checklist in `skills/blog/references/research-quality.md`:
+
+- [ ] Primary entity (official statements, vendor site)
+- [ ] Counter-perspective (critics, competitors, contrarians)
+- [ ] Practitioner discourse (subreddits, forums, dev.to)
+- [ ] Tangential entities (founder, parent org, related people)
+- [ ] Time anchor (last 30 or 90 days)
+
+When the topic resolves to a person who ships code, also resolve their GitHub username and their org's X / Twitter handle.
+
 ### When Finding Statistics
 
 1. Search for current data: `[topic] study 2025 2026 data statistics research`
@@ -59,6 +77,26 @@ sources.
    - Methodology (if available)
 4. Verify the statistic exists on the source page using WebFetch
 5. Flag any statistics that cannot be verified
+
+### Freshness Floor (v1.8.0)
+
+For time-sensitive content (news, trend analysis, "state of X" posts, product updates), require at least 2 sources published within the last 30 days, in addition to the FLOW evidence triple. For evergreen content (definitional, historical, foundational), relax to 90 days. Report the freshness summary at the top of the research output. See `skills/blog/references/research-quality.md` for the full classification table.
+
+### Quality Rubric (v1.8.0)
+
+Before passing research to `blog-writer`, score the output against the 5-dimension rubric in `skills/blog/references/research-quality.md`:
+
+- 30% groundedness (named source per claim, FLOW triple)
+- 25% specificity (named entities, exact numbers)
+- 20% coverage (>=2 independent sources per load-bearing claim; cross-source clustering applied)
+- 15% actionability (the reader can do something concrete)
+- 10% format compliance (per `skills/blog/references/synthesis-contract.md`)
+
+A research output scoring below 70 is sent back for remediation. Below 50 is a do-over.
+
+### Cross-Source Clustering (v1.8.0)
+
+When multiple retrieved sources cite the same upstream source (e.g. five articles all paraphrasing one BrightEdge report), they are ONE source for coverage scoring purposes, not five. Group retrieved sources by upstream; surface the upstream as the primary citation; mention secondary sources only when they add original analysis. See `skills/blog/references/research-quality.md` for the clustering procedure and reporting format.
 
 ### When Finding Images
 

@@ -21,6 +21,12 @@ Google rankings while establishing brand presence for AI citation platforms.
 Includes topic cluster architecture, AI citation surface strategy, content
 scoring targets, and GEO-specific optimization plans.
 
+**Research discipline references (v1.8.0)**:
+- `../blog/references/research-quality.md` -- 5-dim rubric, pre-flight trap classes, cross-source clustering, freshness floors
+- `../blog/references/synthesis-contract.md` -- 6 LAWs for synthesis output
+
+**Auto-loaded inputs (v1.8.0)**: when `DISCOURSE.md` exists at the project root (from `/blog discourse`), load it for cross-platform discourse signal alongside this skill's authority-source planning.
+
 ## Cross-reference
 
 Strategy planning should consider the FLOW 5-surface model (owned site, SERP plus AI Overviews, AI assistant citations, local pack, communities and video). Local-pack work is delegated to `claude-seo`; everything else lives inside claude-blog. Full mapping in `skills/blog/references/flow-alignment.md`.

@@ -1,0 +1,370 @@
+#!/usr/bin/env python3
+"""
+Cognitive Load Analyzer for Long-Form Blog Content
+
+Measures concepts-per-section to identify overloaded H2 sections that exceed
+the working-memory ceiling (~4 items, Cowan 2001). Companion to analyze_blog.py.
+
+Adapted from cognitive-load theory (Sweller 1988) and the impeccable plugin's
+UI cognitive-load model (Paul Bakaus, Apache 2.0, github.com/pbakaus/impeccable).
+
+Usage:
+    python cognitive_load.py <file>                    # Default JSON output
+    python cognitive_load.py <file> --format markdown  # Markdown heatmap
+    python cognitive_load.py <file> --jargon <path>    # Custom jargon list
+
+Signals measured per H2 section:
+    - new_entity_density:    Capitalized multi-word phrases not seen in prior sections, per 100 words
+    - numeric_claim_density: Numbers (percentages, counts, currencies, dates), per 100 words
+    - jargon_introduction:   Domain terms from the jargon list not yet defined
+    - forward_reference:     Phrases like "as we will see," "discussed below"
+    - avg_clause_depth:      Subordinate-clause markers per sentence (avg)
+    - load_score:            Composite 0-100; higher = more loaded
+
+Thresholds (per cognitive-load.md):
+    new_entity_density:   1-3 healthy, 4-6 borderline, 7+ overloaded
+    numeric_claim_density: 1-3 healthy, 4-5 borderline, 6+ overloaded
+    jargon_introduction:  0-1 healthy, 2-3 borderline, 4+ overloaded
+    forward_reference:    0 healthy, 1 borderline, 2+ overloaded
+    avg_clause_depth:     <1.5 healthy, 1.5-2.5 borderline, >2.5 overloaded
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+# ---------------------------------------------------------------------------
+# Default jargon list (extendable via --jargon)
+# ---------------------------------------------------------------------------
+
+DEFAULT_JARGON = {
+    "schema markup", "structured data", "e-e-a-t", "geo", "aeo",
+    "burstiness", "ttr", "type-token ratio", "core web vitals", "lcp",
+    "cls", "inp", "json-ld", "hreflang", "canonical", "robots.txt",
+    "indexability", "crawlability", "passage-level citability", "answer-first",
+    "flow framework", "evidence triple", "tier 1", "tier 2", "tier 3",
+    "intrinsic load", "extraneous load", "germane load",
+}
+
+FORWARD_REFERENCE_PATTERNS = [
+    r"\bas (we|i) (will|shall) (see|discuss|cover|explore)\b",
+    r"\b(discussed|covered|explained|detailed) (below|later|further)\b",
+    r"\blater in this (post|article|guide|section)\b",
+    r"\bwe('|'')ll (see|cover|discuss|return to)\b",
+    r"\bmore on this (later|below|in a moment)\b",
+    r"\bcoming up\b",
+]
+
+CLAUSE_MARKERS = [
+    ",", ";", "(", ")",
+    " which ", " that ", " who ", " whose ",
+    " although ", " though ", " unless ", " whereas ",
+    " because ", " since ", " while ",
+]
+
+# Currency, percentage, integer/decimal, year-like, ordinal numeric patterns
+NUMERIC_RE = re.compile(
+    r"\$\d[\d,]*(?:\.\d+)?[bmkBMK]?|"  # currency
+    r"\d+(?:\.\d+)?\s*%|"               # percentage
+    r"\b(?:19|20|21)\d{2}\b|"           # year (1900-2199)
+    r"\b\d+(?:\.\d+)?(?:st|nd|rd|th)?\b"
+)
+
+ENTITY_RE = re.compile(r"\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b")
+
+H2_RE = re.compile(r"^(##\s+.+)$", re.MULTILINE)
+
+
+def strip_frontmatter(text: str) -> str:
+    """Remove YAML frontmatter if present."""
+    if not text.startswith("---"):
+        return text
+    end = text.find("\n---", 3)
+    if end == -1:
+        return text
+    return text[end + 4 :]
+
+
+def split_sections(text: str) -> list[tuple[str, str]]:
+    """Split markdown into [(heading, body), ...] by H2."""
+    text = strip_frontmatter(text)
+    parts = H2_RE.split(text)
+    if len(parts) < 2:
+        return [("(no H2 sections)", text)]
+    intro = parts[0].strip()
+    sections: list[tuple[str, str]] = []
+    if intro:
+        sections.append(("(intro)", intro))
+    i = 1
+    while i < len(parts):
+        heading = parts[i].lstrip("#").strip()
+        body = parts[i + 1] if i + 1 < len(parts) else ""
+        sections.append((heading, body.strip()))
+        i += 2
+    return sections
+
+
+def count_words(text: str) -> int:
+    return len(re.findall(r"\b\w+\b", text))
+
+
+def count_sentences(text: str) -> int:
+    sentences = re.split(r"[.!?]+\s+", text)
+    return max(1, len([s for s in sentences if s.strip()]))
+
+
+def find_entities(text: str) -> set[str]:
+    """Capitalized multi-word phrases. Filters obvious non-entities."""
+    common = {
+        "The", "This", "That", "These", "Those", "It", "We", "You", "They",
+        "If", "When", "While", "Where", "How", "What", "Why", "Who",
+        "First", "Second", "Third", "Next", "Then", "Now", "Here",
+        "Most", "Some", "All", "Every", "Each", "Both",
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday",
+    }
+    found = ENTITY_RE.findall(text)
+    return {e for e in found if e.split()[0] not in common and len(e) > 2}
+
+
+def count_numeric_claims(text: str) -> int:
+    return len(NUMERIC_RE.findall(text))
+
+
+def count_jargon_introductions(text: str, jargon: set[str], seen: set[str]) -> int:
+    """Count jargon terms appearing for the first time in this section."""
+    lower = text.lower()
+    introductions = 0
+    for term in jargon:
+        if term in lower and term not in seen:
+            introductions += 1
+            seen.add(term)
+    return introductions
+
+
+def count_forward_references(text: str) -> int:
+    lower = text.lower()
+    total = 0
+    for pattern in FORWARD_REFERENCE_PATTERNS:
+        total += len(re.findall(pattern, lower))
+    return total
+
+
+def avg_clause_depth(text: str) -> float:
+    sentences = re.split(r"[.!?]+\s+", text)
+    sentences = [s for s in sentences if s.strip()]
+    if not sentences:
+        return 0.0
+    total = 0
+    for sentence in sentences:
+        for marker in CLAUSE_MARKERS:
+            total += sentence.lower().count(marker)
+    return round(total / len(sentences), 2)
+
+
+def classify(value: float, healthy_max: float, borderline_max: float) -> str:
+    if value <= healthy_max:
+        return "healthy"
+    if value <= borderline_max:
+        return "borderline"
+    return "overloaded"
+
+
+def score_section(
+    body: str,
+    prior_entities: set[str],
+    seen_jargon: set[str],
+    jargon: set[str],
+) -> dict[str, Any]:
+    words = count_words(body)
+    if words == 0:
+        return {
+            "words": 0, "new_entities": 0, "new_entity_density": 0.0,
+            "numeric_claims": 0, "numeric_claim_density": 0.0,
+            "jargon_introductions": 0, "forward_references": 0,
+            "avg_clause_depth": 0.0, "load_score": 0,
+            "verdict": "empty", "flags": [],
+        }
+    entities = find_entities(body)
+    new_entities = entities - prior_entities
+    prior_entities.update(new_entities)
+
+    per_100 = lambda n: round(n * 100 / words, 2) if words else 0.0
+    new_entity_density = per_100(len(new_entities))
+    numeric_claims = count_numeric_claims(body)
+    numeric_claim_density = per_100(numeric_claims)
+    jargon_intros = count_jargon_introductions(body, jargon, seen_jargon)
+    forward_refs = count_forward_references(body)
+    clause_depth = avg_clause_depth(body)
+
+    signals = [
+        ("entity", classify(new_entity_density, 3, 6)),
+        ("numeric", classify(numeric_claim_density, 3, 5)),
+        ("jargon", classify(float(jargon_intros), 1, 3)),
+        ("forward_ref", classify(float(forward_refs), 0, 1)),
+        ("clause_depth", classify(clause_depth, 1.5, 2.5)),
+    ]
+    weight = {"overloaded": 25, "borderline": 10, "healthy": 0}
+    load_score = min(100, sum(weight[level] for _, level in signals))
+    overloaded_signals = [name for name, level in signals if level == "overloaded"]
+    if load_score >= 50 or len(overloaded_signals) >= 2:
+        verdict = "overloaded"
+    elif load_score >= 25:
+        verdict = "borderline"
+    else:
+        verdict = "healthy"
+
+    return {
+        "words": words,
+        "new_entities": len(new_entities),
+        "new_entity_density": new_entity_density,
+        "numeric_claims": numeric_claims,
+        "numeric_claim_density": numeric_claim_density,
+        "jargon_introductions": jargon_intros,
+        "forward_references": forward_refs,
+        "avg_clause_depth": clause_depth,
+        "load_score": load_score,
+        "verdict": verdict,
+        "flags": overloaded_signals,
+    }
+
+
+def analyze(path: Path, jargon: set[str]) -> dict[str, Any]:
+    text = path.read_text(encoding="utf-8")
+    sections = split_sections(text)
+    prior_entities: set[str] = set()
+    seen_jargon: set[str] = set()
+    results: list[dict[str, Any]] = []
+    for heading, body in sections:
+        scored = score_section(body, prior_entities, seen_jargon, jargon)
+        scored["heading"] = heading
+        results.append(scored)
+
+    total_words = sum(r["words"] for r in results)
+    overall_load = (
+        round(sum(r["load_score"] * r["words"] for r in results) / total_words, 1)
+        if total_words else 0
+    )
+    overloaded = [r for r in results if r["verdict"] == "overloaded"]
+    borderline = [r for r in results if r["verdict"] == "borderline"]
+
+    if overall_load >= 50:
+        verdict = "Overloaded"
+    elif overall_load >= 25:
+        verdict = "Moderate"
+    else:
+        verdict = "Healthy"
+
+    return {
+        "file": str(path),
+        "overall_load": overall_load,
+        "verdict": verdict,
+        "section_count": len(results),
+        "overloaded_section_count": len(overloaded),
+        "borderline_section_count": len(borderline),
+        "sections": results,
+    }
+
+
+def format_markdown(report: dict[str, Any]) -> str:
+    out = [
+        f"## Cognitive Load Heatmap: {Path(report['file']).name}",
+        "",
+        f"Overall load: {report['overall_load']} / 100 ({report['verdict']})",
+        "",
+        "| Section (H2) | Words | Load | Entities/100 | Numerics/100 | Jargon | Forward refs | Avg clauses |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for sec in report["sections"]:
+        out.append(
+            f"| {sec['heading'][:60]} | {sec['words']} | {sec['load_score']} | "
+            f"{sec['new_entity_density']} | {sec['numeric_claim_density']} | "
+            f"{sec['jargon_introductions']} | {sec['forward_references']} | "
+            f"{sec['avg_clause_depth']} |"
+        )
+    overloaded = [s for s in report["sections"] if s["verdict"] == "overloaded"]
+    if overloaded:
+        out.extend(["", "### Overloaded sections (P1)"])
+        for sec in overloaded:
+            flags = ", ".join(sec["flags"]) or "composite load"
+            out.append(f"- **{sec['heading']}**: {flags}. Split or scaffold.")
+    return "\n".join(out)
+
+
+MAX_INPUT_BYTES = 10 * 1024 * 1024  # 10 MB cap on any input file (DoS guard)
+MAX_JARGON_BYTES = 1 * 1024 * 1024   # 1 MB cap on jargon list
+
+
+def _validate_input_path(path: Path, max_bytes: int, label: str) -> Path:
+    """Validate a CLI file path. Closes path-traversal, symlink, and DoS vectors.
+
+    - Refuses symlinks (CWE-59) so a hostile symlink to /etc/passwd or /dev/zero is rejected.
+    - Refuses non-regular files (no FIFOs, devices, sockets).
+    - Enforces a size cap so a 100 GB file cannot exhaust memory.
+    Raises ValueError on any failure with a message safe for stderr.
+    """
+    if not path.exists():
+        raise ValueError(f"{label} not found: {path}")
+    if path.is_symlink():
+        raise ValueError(
+            f"{label} is a symlink; refusing to follow for safety: {path}"
+        )
+    if not path.is_file():
+        raise ValueError(f"{label} is not a regular file: {path}")
+    size = path.stat().st_size
+    if size > max_bytes:
+        raise ValueError(
+            f"{label} exceeds size cap ({size} bytes > {max_bytes}): {path}"
+        )
+    return path
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("file", help="Path to markdown / MDX file")
+    parser.add_argument(
+        "--format", choices=["json", "markdown"], default="json",
+        help="Output format (default: json)",
+    )
+    parser.add_argument(
+        "--jargon", type=Path, default=None,
+        help="Path to newline-delimited jargon list to add to defaults",
+    )
+    args = parser.parse_args()
+
+    try:
+        path = _validate_input_path(Path(args.file), MAX_INPUT_BYTES, "Input file")
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 2
+
+    jargon = set(DEFAULT_JARGON)
+    if args.jargon:
+        try:
+            jargon_path = _validate_input_path(
+                args.jargon, MAX_JARGON_BYTES, "Jargon file"
+            )
+            jargon.update(
+                line.strip().lower()
+                for line in jargon_path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            )
+        except ValueError as e:
+            print(f"Warning: {e}; proceeding with default jargon.", file=sys.stderr)
+
+    report = analyze(path, jargon)
+    if args.format == "markdown":
+        print(format_markdown(report))
+    else:
+        print(json.dumps(report, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

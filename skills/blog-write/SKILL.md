@@ -22,6 +22,7 @@ follows the 6 pillars of dual optimization (Google rankings + AI citations).
 **Key references** (paths relative to repo root; references live in the
 main `blog` skill's references directory, not in `blog-write/`):
 
+- `skills/blog/references/synthesis-contract.md` -- 6 LAWs for synthesis output (v1.8.0; applies whenever the article embeds research-synthesis prose)
 - `skills/blog/references/content-templates.md` -- Template selection guide and usage
 - `skills/blog/references/quality-scoring.md` -- 5-category scoring (Content 30, SEO 25, E-E-A-T 15, Technical 15, AI Citation 15)
 - `skills/blog/references/eeat-signals.md` -- Experience, expertise, authority, trust markers

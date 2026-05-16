@@ -7,7 +7,7 @@
 ![Claude Code Skill](https://img.shields.io/badge/Claude_Code-Skill-blueviolet)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue)
-![Sub-Skills](https://img.shields.io/badge/Sub--Skills-28-orange)
+![Sub-Skills](https://img.shields.io/badge/Sub--Skills-30-orange)
 
 > **Blog:** [See how claude-blog works](https://agricidaniel.com/blog/claude-code-blog-writer)
 
@@ -99,8 +99,30 @@ Restart Claude Code after installation to activate.
 | `/blog notebooklm <question>` | Query NotebookLM for source-grounded research |
 | `/blog audio [generate\|voices\|setup]` | Generate audio narration via Gemini TTS |
 | `/blog google [command] [args]` | Google API data: PSI, CrUX, GSC, GA4, NLP, YouTube, Keywords |
+| `/blog cluster [plan\|execute] <seed>` | Semantic topic-cluster planning + execution (hub-and-spoke) |
+| `/blog multilingual <topic> --languages <codes>` | Write + translate + localize + emit hreflang in one command |
+| `/blog translate <file> --to <codes>` | SEO-optimized translation with format preservation |
+| `/blog localize <file> --locale <code>` | Cultural deep-adaptation per locale |
+| `/blog locale-audit <directory>` | Multilingual content QA (completeness, hreflang, parity, freshness) |
+| `/blog flow [find\|optimize\|win\|prompts\|sync]` | FLOW framework prompts (evidence-led, 30 blog-applicable) |
+| `/blog brand [init\|show\|update]` | Generate BRAND.md + VOICE.md context auto-loaded by all sub-skills (v1.8.0) |
+| `/blog discourse <topic>` | API-free last-30-days discourse research; produces DISCOURSE.md (v1.8.0) |
 
-> **28 sub-skills total**: 26 user-facing commands above + `blog-chart` (internal SVG generation) + `blog-image` (also callable internally by write/rewrite). v1.7.0 added `blog-cluster`, `blog-multilingual`, `blog-translate`, `blog-localize`, `blog-locale-audit`, and `blog-flow`.
+> **30 sub-skills total**: 28 user-facing commands above + `blog-chart` (internal SVG generation) + `blog-image` (also callable internally by write/rewrite). v1.7.0 added `blog-cluster`, `blog-multilingual`, `blog-translate`, `blog-localize`, `blog-locale-audit`, and `blog-flow`. v1.8.0 added `blog-brand` and `blog-discourse`.
+
+### Foundational methodologies (v1.8.0 references)
+
+Five reference documents under `skills/blog/references/` define the editorial and research methodology applied across all sub-skills. They are loaded on demand by the orchestrator when relevant:
+
+| Reference | Purpose | Used by |
+|---|---|---|
+| `ai-slop-detection.md` | Two-tier first-order (phrases) + second-order (structural rhythm) AI-content detection | `blog-rewrite`, `blog-reviewer`, `blog-analyze` |
+| `editorial-heuristics.md` | 10 Nielsen-adapted editorial heuristics with 0-4 ordinal scoring + P0-P3 severity tagging | `blog-analyze --rubric` |
+| `cognitive-load.md` | Per-section concept-density model (entities, numerics, jargon, forward refs, clause depth) | `blog-analyze --cognitive-load`, `scripts/cognitive_load.py` |
+| `research-quality.md` | 5-dimension research rubric + 4 pre-flight keyword-trap classes + named-entity decomposition + cross-source clustering + 30/90-day freshness floors | `blog-researcher`, `blog-discourse`, `blog-brief`, `blog-strategy` |
+| `synthesis-contract.md` | 6 LAWs governing research-synthesis output (no trailing Sources block, no invented titles, no em-dashes, no raw cluster dumps, inline `[name](url)` citations, discrete claims) | All research-synthesis sub-skills |
+
+Adapted from `pbakaus/impeccable` (Apache 2.0) and `mvanhorn/last30days-skill` (MIT). See `CONTRIBUTORS.md` for the full attribution.
 
 ## Features
 
@@ -170,10 +192,10 @@ claude-blog/
 │   └── plugin.json                     # Plugin metadata (name, description, author)
 ├── skills/
 │   ├── blog/                           # Main orchestrator
-│   │   ├── SKILL.md                    # Routes all 27 commands
-│   │   ├── references/                 # 14 on-demand reference docs
+│   │   ├── SKILL.md                    # Routes all 28 user-facing commands
+│   │   ├── references/                 # 19 on-demand reference docs (5 new in v1.8.0)
 │   │   └── templates/                  # 12 content type templates
-│   ├── blog-write/SKILL.md            # Sub-skills (21 user-facing + 1 internal)
+│   ├── blog-write/SKILL.md            # Sub-skills (28 user-facing + 2 internal-only)
 │   ├── blog-rewrite/SKILL.md
 │   ├── blog-analyze/SKILL.md
 │   ├── blog-brief/SKILL.md
@@ -211,9 +233,13 @@ claude-blog/
 │   ├── blog-researcher.md
 │   ├── blog-writer.md
 │   ├── blog-seo.md
-│   └── blog-reviewer.md
+│   ├── blog-reviewer.md
+│   └── blog-translator.md             # v1.7.0; runs without Bash for blast-radius safety
 ├── scripts/
-│   └── analyze_blog.py                 # Python quality analysis (5-category scoring)
+│   ├── analyze_blog.py                 # Python quality analysis (5-category scoring)
+│   ├── cognitive_load.py               # Per-section concept-density analyzer (v1.8.0)
+│   ├── discourse_research.py           # Discourse brief synthesis from SERP JSON (v1.8.0)
+│   └── sync_flow.py                    # FLOW reference sync (stdlib, sandboxed)
 ├── tests/                              # pytest test suite
 │   ├── conftest.py
 │   └── test_analyze_blog.py

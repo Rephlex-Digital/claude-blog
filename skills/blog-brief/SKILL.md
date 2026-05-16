@@ -23,6 +23,12 @@ Reference documents:
 - `references/content-templates.md` -- template selection criteria
 - `references/distribution-playbook.md` -- channel-specific distribution tactics
 - `references/internal-linking.md` -- link architecture patterns
+- `references/research-quality.md` -- 5-dim quality rubric + pre-flight trap classes + freshness floors (v1.8.0)
+- `references/synthesis-contract.md` -- 6 LAWs for synthesis output (v1.8.0)
+
+## Auto-loaded inputs (v1.8.0)
+
+When `DISCOURSE.md` is present at the project root (produced by `/blog discourse`), load it before starting brief generation. Use the discourse brief's "What's NEW" themes, "Consensus" themes, and "Contrarian takes" sections to enrich the competitive landscape and information-gain sections of this brief. Cite from DISCOURSE.md using the same inline `[name](url)` pattern. If DISCOURSE.md is absent, behavior is unchanged.
 
 ## Cross-reference
 

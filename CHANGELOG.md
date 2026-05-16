@@ -7,6 +7,212 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-05-16
+
+### Methodology ports from impeccable (Paul Bakaus, Apache 2.0)
+
+Four editorial methodologies adapted from the impeccable frontend-design plugin
+(`github.com/pbakaus/impeccable` v3.1.1). Impeccable polishes UIs; this release
+applies the same mental models to prose. No code is copied verbatim; only the
+mental models. See `CONTRIBUTORS.md` for the full attribution.
+
+#### Added
+
+- **`skills/blog/references/ai-slop-detection.md`**: two-tier reflex
+  methodology for catching AI-generated structural tics that survive the
+  vocabulary blocklist. First-order = phrase + lexical (existing). Second-order
+  = structural and rhythmic (new): question-cadence H2s, three-clause sentence
+  rhythm, hedge stacking, symmetric list bloat, wrap-up rhetorical questions,
+  capsule H2 transitions, "key insight" sentence openers, listicle intro bloat,
+  paragraph-shape flatness. A draft is "AI-detection clean" only when both
+  tiers pass.
+- **`skills/blog/references/editorial-heuristics.md`**: ordinal 0-4 rubric
+  with P0-P3 severity tags. Parallel to (not replacing) the 100-point score.
+  Translates Nielsen's 10 Usability Heuristics into editorial heuristics
+  (e.g. "Error prevention" -> "Fabricated-stat prevention"; "Recognition
+  rather than recall" -> "Reader does not memorize"). Exposed via
+  `/blog analyze --rubric`.
+- **`skills/blog/references/cognitive-load.md`** + **`scripts/cognitive_load.py`**
+ : per-section concept-density analyzer. Measures new-entity density, numeric
+  claim density, jargon introductions, forward references, and average clause
+  depth. Identifies overloaded H2 sections (composite load score >= 50).
+  Exposed via `/blog analyze --cognitive-load`.
+- **`skills/blog-brand/` (new sub-skill)**: generates `BRAND.md` and
+  `VOICE.md` at the project root. When present, all blog sub-skills auto-load
+  these files at the start of any drafting / reviewing / scoring command.
+  Commands: `/blog brand init|show|update`. Editorial analog of impeccable's
+  PRODUCT.md / DESIGN.md context-loading pattern. Backward-compatible: absent
+  files = unchanged v1.7.1 behavior.
+- **`tests/test_cognitive_load.py`**: happy path + empty input regression
+  test for the new analyzer.
+
+#### Changed
+
+- `skills/blog-rewrite/SKILL.md`: anti-AI scrub now invokes the two-tier
+  check. Tier 2 runs after Tier 1 in Phase 1, step 3.
+- `agents/blog-reviewer.md`: AI Content Detection section gains a
+  Second-Order Structural Reflex subsection with 13 specific patterns to flag.
+- `skills/blog-analyze/SKILL.md`: adds `--rubric` and `--cognitive-load`
+  flags. Default behavior unchanged. JSON output schema preserved; new
+  fields are additive (`rubric`, `cognitive_load`).
+- `skills/blog/SKILL.md`: orchestrator now auto-loads `BRAND.md` and
+  `VOICE.md` when present at the project root, injecting contents into
+  downstream agent prompts. Adds `blog-brand` to routing table, sub-skills
+  table, and quick reference. Adds three new reference files to the
+  on-demand load list. Version bumped to 1.8.0.
+- `.claude-plugin/plugin.json`: version 1.8.0; sub-skill count 28 -> 30;
+  description extended with v1.8.0 features.
+
+### Methodology adaptation from last30days-skill (Matt Van Horn, MIT)
+
+Three research-discipline methodologies adapted from `last30days-skill` v3.2.1
+(`github.com/mvanhorn/last30days-skill`). The upstream is a multi-platform
+discourse engine (Reddit / X / YouTube / TikTok / Hacker News / Polymarket /
+GitHub / Bluesky / etc.) that depends on platform APIs. This release ports the
+RESEARCH METHODOLOGY only; no API plumbing is copied. Everything runs API-free
+via WebSearch with platform-targeted site operators.
+
+#### Added
+
+- `skills/blog-discourse/SKILL.md`: new user-invokable sub-skill. Researches
+  "what are people actually saying about <topic> in the last 30 days" across
+  Reddit / Hacker News / X / YouTube / dev.to / Medium / GitHub / Stack
+  Overflow / Substack / Bluesky via WebSearch + site operators. Produces
+  `DISCOURSE.md` at project root with NEW themes, cross-platform consensus,
+  contrarian takes, practitioner specifics, and source breakdown. Composes
+  with `/blog brief | write | strategy` via `--feed-into <command>`.
+- `scripts/discourse_research.py`: CLI helper that consumes a JSON array of
+  pre-gathered SERP results and emits the structured brief. Applies LAW 2
+  (no invented titles), LAW 3 (strips em-dashes / en-dashes), LAW 5 (inline
+  `[name](url)` citations), and cross-source clustering. Stdlib only.
+- `skills/blog/references/research-quality.md`: 5-dimension research-output
+  rubric (groundedness 30, specificity 25, coverage 20, actionability 15,
+  format 10), four pre-flight keyword-trap classes (demographic shopping,
+  numeric trap, overly-literal phrase, generic single-noun), named-entity
+  decomposition pattern (Step 0.55), cross-source clustering procedure, and
+  freshness floor table (30-day for time-sensitive, 90-day for evergreen).
+- `skills/blog/references/synthesis-contract.md`: 6 LAWs governing research-
+  synthesis output. LAW 1: no trailing Sources block when inline-cited.
+  LAW 2: no invented titles. LAW 3: no em-dashes or en-dashes. LAW 4: no
+  raw cluster dumps with score tuples in body. LAW 5: every citation as
+  inline `[name](url)`. LAW 6: discrete claims, not topic surveys.
+- `tests/test_discourse_research.py`: 3 smoke tests (happy path multi-platform,
+  empty input, LAW hygiene).
+
+#### Changed
+
+- `agents/blog-researcher.md`: gains Step 0.45 (keyword-trap pre-flight),
+  Step 0.55 (named-entity decomposition), freshness floor (30-day / 90-day
+  classification with explicit source-count gates), 5-dimension quality
+  rubric scoring before handoff to `blog-writer`, and cross-source clustering
+  to prevent echo. Each addition references `research-quality.md`.
+- `skills/blog/SKILL.md`: orchestrator now auto-loads `DISCOURSE.md` (when
+  present at project root) at the start of drafting / brief / strategy
+  commands, alongside the existing BRAND.md / VOICE.md auto-load. Adds
+  `blog-discourse` to routing table, sub-skills table, and quick reference.
+  Adds `research-quality.md` and `synthesis-contract.md` to the reference
+  files list. Sub-skill count 29 -> 30.
+- `skills/blog-brief/SKILL.md`, `skills/blog-strategy/SKILL.md`,
+  `skills/blog-write/SKILL.md`, `skills/blog-rewrite/SKILL.md`: each
+  references `research-quality.md` and `synthesis-contract.md` for input
+  research-quality scoring and synthesis-output LAW enforcement.
+
+### Audit-driven hardening (cybersecurity 8-agent + github 6-agent + competitive analysis, 2026-05-17)
+
+A comprehensive three-track audit ran against v1.8.0 before commit:
+cybersecurity (8 parallel specialist agents, OWASP + MITRE ATT&CK +
+threat-intel + AI-code review), github (6 scoring agents across README /
+metadata / legal / community / release / SEO), and a shallow competitive-gap
+analysis (rankenstein-blog, last30days, marketing-skills, Frase, SurferSEO).
+Composite scores before fixes: cybersec ~75 (capped at C by auto-CRITICAL
+gate), github ~85, competitive positioning strong. The following fixes
+landed before this release.
+
+#### Security (CRITICAL)
+- **Indirect prompt-injection guard for project-root file auto-load
+  (`skills/blog/SKILL.md`)**: the v1.8.0 BRAND.md / VOICE.md / DISCOURSE.md
+  auto-load was flagged CRITICAL by 3 of 8 cybersecurity agents
+  independently. A poisoned project-root file could instruct downstream
+  agents (including blog-researcher with WebFetch authority) to exfiltrate
+  data. Closed by an "Untrusted-Data Contract" section that mandates
+  explicit fencing (`=== BEGIN UNTRUSTED PROJECT-ROOT CONTEXT ===`),
+  pre-injection sanitization scan for instruction-shaped patterns
+  ("ignore previous", "from now on", "exfiltrate", "system:",
+  `<|im_start|>`, "act as", etc.), tool-boundary preservation (project-root
+  files cannot unlock tools the agent does not already have), and
+  provenance recording (file mtime in the injection).
+- **`SECURITY.md` adds T12 trust boundary** documenting the project-root
+  auto-load surface in line with T9 (WebFetch indirect injection).
+
+#### Security (HIGH)
+- **Path-traversal / symlink / DoS hardening for new v1.8.0 scripts**:
+  `scripts/cognitive_load.py` and `scripts/discourse_research.py` previously
+  accepted unrestricted Path() arguments. Now use `_validate_input_path` and
+  `_validate_output_path` helpers that:
+  - Refuse symlinks (CWE-59) so a hostile link to `/etc/passwd` or
+    `~/.ssh/id_rsa` is rejected
+  - Refuse non-regular files (no FIFOs, devices, sockets)
+  - Enforce size caps (`MAX_INPUT_BYTES = 10 MB` for cognitive_load file,
+    `1 MB` for jargon; `25 MB` for discourse results, `256 KB` for
+    decomposition file; `25 MB` for stdin)
+  - Refuse overwriting existing symlinks via `--output`
+  - Refuse output paths whose parent directory does not exist
+- **JSON schema validation in `scripts/discourse_research.py`**: input items
+  must be objects with required fields (`platform`, `url`, `title`,
+  `snippet`); arrays capped at `MAX_ITEMS = 10_000` to prevent
+  clustering-complexity DoS.
+- **`google-genai` upper-bound pinned** in
+  `skills/blog-audio/scripts/requirements.txt` (`>=1.0.0,<2.0.0`) to
+  prevent silent v2.x breaking-change adoption.
+
+#### Legal compliance
+- **`NOTICE` file added at repo root** to satisfy Apache 2.0 § 4(d)
+  attribution for the impeccable methodology adaptations. Lists all four
+  impeccable-sourced methodologies, all five last30days-sourced
+  methodologies, and the FLOW CC BY 4.0 sync arrangement, with explicit
+  source-to-target mapping.
+- **`LICENSE` copyright year extended** from `2025` to `2025-2026` to
+  reflect the substantial 2026 development arc (v1.6.5 through v1.8.0).
+- **`CITATION.cff` updated**: version `1.5.0 -> 1.8.0`, date released
+  `2026-03-18 -> 2026-05-16`, given-names / family-names added,
+  keywords expanded (added geo, aeo, plugin, mdx, wordpress, multilingual,
+  hreflang, flow-framework, discourse-research), homepage URL switched
+  from `rankenstein.pro` to `claude-blog.md`.
+- **`pyproject.toml` version bumped** from `1.7.1 -> 1.8.0`.
+
+#### Community
+- **`.github/ISSUE_TEMPLATE/config.yml`** added: disables blank issues and
+  routes general questions to Discussions, security disclosures to the
+  Security Advisories page, and documentation to docs/.
+- **`.github/FUNDING.yml`** added with GitHub Sponsors link.
+- **`.github/pull_request_template.md`** expanded from a 5-line stub to
+  include Type of Change, Linked issue, comprehensive test plan (pytest +
+  plugin validate + em-dash hygiene), documentation checklist, security
+  checklist, and link to CONTRIBUTING.md.
+- **`CONTRIBUTING.md`** expanded with explicit Code Style section
+  (Python conventions, prose conventions, conventional commits) and
+  Security expectations section.
+
+#### Documentation
+- **`README.md`** count and content fixes: added 9 missing user-facing
+  commands to the Commands table (blog-cluster, blog-multilingual,
+  blog-translate, blog-localize, blog-locale-audit, blog-flow, blog-brand,
+  blog-discourse); Architecture section sub-skill count corrected
+  (`21 user-facing + 1 internal` -> `28 user-facing + 2 internal-only`);
+  agents list corrected (4 -> 5, added blog-translator); scripts list
+  expanded to include cognitive_load.py, discourse_research.py, sync_flow.py.
+- **`docs/COMMANDS.md`** routing table extended to include all 30
+  sub-skills (previously listed only the v1.6.x set).
+- **`PRIVACY.md`** date bumped to `2026-05-17`.
+
+#### Tests
+- **`tests/test_security_v1_8_0.py`** (12 tests, 11 pass + 1 graceful skip):
+  symlink refusal on input and output paths for both new scripts; size-cap
+  enforcement; JSON schema validation (non-array, missing fields,
+  too-many-items); orchestrator Untrusted-Data Contract presence; T12
+  documentation in SECURITY.md; NOTICE file existence and Apache 2.0
+  attribution. Total test count: 60 -> 71.
+
 ## [1.7.1] - 2026-04-27
 
 ### Security audit + remediation arc (12 commits, all CRITICAL + HIGH closed)
