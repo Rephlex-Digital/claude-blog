@@ -160,7 +160,7 @@ Reference: `references/content-templates.md` for full template details.
 | Day | Type | Title | Template | Cluster | Target Keyword | Status |
 |-----|------|-------|----------|---------|---------------|--------|
 | Mon | New | [Title] | how-to-guide | [Cluster] | [keyword] | Draft |
-| Thu | Update | [Existing post] |: | [Cluster] | [keyword] | Refresh |
+| Thu | Update | [Existing post] | - | [Cluster] | [keyword] | Refresh |
 
 ### Week 2: [Date Range]
 | Day | Type | Title | Template | Cluster | Target Keyword | Status |
@@ -207,7 +207,7 @@ Reference: `references/content-templates.md` for full template details.
 | Week | Type | Title | Template | Cluster | Keyword |
 |------|------|-------|----------|---------|---------|
 | W1 | New | ... | how-to-guide | ... | ... |
-| W1 | Update | ... |: | ... | ... |
+| W1 | Update | ... | - | ... | ... |
 | W2 | New | ... | comparison | ... | ... |
 [...]
 

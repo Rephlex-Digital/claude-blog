@@ -54,7 +54,7 @@
 
 ### Introduction (100-150 words)
 
-[ANSWER-FIRST] Open with the key result metric in the very first sentence. Don't build up to it: lead with it.
+[ANSWER-FIRST] Open with the key result metric in the very first sentence. Don't build up to it. Lead with it.
 
 **Structure:**
 1. **Result lead** (1 sentence): State the primary outcome with specific numbers.
@@ -88,7 +88,7 @@
 [IMAGE] Diagram or screenshot showing the "before" state: the broken architecture, the poor metrics dashboard, the error logs.
 
 **Example opening:**
-> "At peak traffic, Acme's API was returning 500 errors on 12% of requests: and their largest enterprise client had set a 30-day deadline to fix it or cancel their $2M annual contract."
+> "At peak traffic, Acme's API was returning 500 errors on 12% of requests, and their largest enterprise client had set a 30-day deadline to fix it or cancel their $2M annual contract."
 
 ---
 
@@ -133,7 +133,7 @@
 
 [INFO-GAIN: implementation detail] Share a specific technical or operational detail that made a material difference: a configuration setting, a migration trick, a coordination process. The kind of detail that saves someone else hours.
 
-[STAT: Implementation efficiency metric: time spent, cost, iterations required]
+[STAT: Implementation efficiency metric (time spent, cost, iterations required)]
 
 **Example step:**
 > 3. **Deployed edge caching layer** (Week 3-4): Set up Cloudflare Workers as a caching layer between the GraphQL gateway and origin servers. Used stale-while-revalidate with a 60s TTL: this single change accounted for 40% of the total latency reduction.

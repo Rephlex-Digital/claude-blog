@@ -55,13 +55,13 @@
 
 ---
 
-### Item 1: [Item Name]: Best Overall / Best for [Primary Use Case] (150-200 words)
+### Item 1: [Item Name] - Best Overall / Best for [Primary Use Case] (150-200 words)
 
 [ANSWER-FIRST] Open with the single strongest reason this item earned its ranking position. Lead with the differentiator, not the description.
 
 **Structure for EVERY item section:**
 
-**H2 format:** `## 1. [Item Name]: Best for [Specific Use Case]`
+**H2 format:** `## 1. [Item Name] - Best for [Specific Use Case]`
 
 1. **Lead differentiator** (1 sentence): The single strongest reason to choose this item.
 2. **Why it's great** (2-3 sentences): Key strengths with specific details (not marketing copy).
@@ -76,7 +76,7 @@
 [STAT: Performance metric, user count, or benchmark result for this item]
 
 **Example:**
-> ## 1. Astro: Best for Content-Heavy Sites
+> ## 1. Astro - Best for Content-Heavy Sites
 >
 > Astro ships zero JavaScript by default, which means your content-heavy site loads faster than anything else on this list: our 500-page test site scored 100/100 on Lighthouse without any optimization.
 >
@@ -90,7 +90,7 @@
 
 ---
 
-### Item 2: [Item Name]: Best for [Specific Use Case] (150-200 words)
+### Item 2: [Item Name] - Best for [Specific Use Case] (150-200 words)
 
 [Follow the same structure as Item 1]
 
@@ -98,7 +98,7 @@
 
 ---
 
-### Item 3: [Item Name]: Best for [Specific Use Case] (150-200 words)
+### Item 3: [Item Name] - Best for [Specific Use Case] (150-200 words)
 
 [Follow the same structure as Item 1]
 
@@ -108,7 +108,7 @@
 
 ---
 
-### Item 4: [Item Name]: Best for [Specific Use Case] (150-200 words)
+### Item 4: [Item Name] - Best for [Specific Use Case] (150-200 words)
 
 [Follow the same structure as Item 1]
 
@@ -116,7 +116,7 @@
 
 ---
 
-### Item 5: [Item Name]: Best for [Specific Use Case] (150-200 words)
+### Item 5: [Item Name] - Best for [Specific Use Case] (150-200 words)
 
 [Follow the same structure as Item 1]
 
@@ -167,7 +167,7 @@
 
 [INFO-GAIN: testing process] Describe your actual testing methodology: what did you build, measure, or try with each item?
 
-[STAT: Total evaluation scope: "We tested [N] tools over [X] weeks"]
+[STAT: Total evaluation scope (e.g. "We tested [N] tools over [X] weeks")]
 
 **Example:**
 > We started with 23 static site generators identified from GitHub trending, community surveys, and our own reader requests. Each was evaluated against five criteria:

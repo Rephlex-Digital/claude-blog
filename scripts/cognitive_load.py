@@ -63,17 +63,27 @@ FORWARD_REFERENCE_PATTERNS = [
     r"\bcoming up\b",
 ]
 
-# Clause-depth markers split into two weighted pools (FIND-013).
-# Punctuation can mark a clause boundary OR a list separator OR a parenthetical;
-# weight it lower to avoid inflating clause-depth scores on prose with normal
-# enumeration. Subordinator words are stronger signals of nested clauses.
-PUNCTUATION_MARKERS = [",", ";", "(", ")"]
-SUBORDINATOR_MARKERS = [
-    " which ", " that ", " who ", " whose ",
-    " although ", " though ", " unless ", " whereas ",
-    " because ", " since ", " while ", " when ", " where ",
-    " if ", " until ", " before ", " after ",
+# Clause-depth markers split into two weighted pools (FIND-013 + v1.8.3
+# corrections). Three corrections vs v1.8.2:
+#   CODE-AUDIT-401: previously counted `(` AND `)` at 0.3 each, double-charging
+#     each parenthetical pair (0.6 per pair). Now count only `(` (single
+#     opener marks the boundary).
+#   CODE-AUDIT-402: previously used " word " substring matching, which missed
+#     sentence-start fronted clauses ("While X happens, Y...") because there
+#     is no leading space before "While". Now use word-boundary regex.
+PUNCTUATION_MARKERS = [",", ";", "("]  # `)` removed: avoid double-count
+SUBORDINATOR_WORDS = [
+    "which", "that", "who", "whose",
+    "although", "though", "unless", "whereas",
+    "because", "since", "while", "when", "where",
+    "if", "until", "before", "after",
 ]
+# Match each subordinator as a whole word anywhere in the sentence, including
+# sentence start ("While X happens..." and "... happens while X" both count).
+_SUBORDINATOR_RE = re.compile(
+    r"\b(?:" + "|".join(SUBORDINATOR_WORDS) + r")\b",
+    re.IGNORECASE,
+)
 PUNCTUATION_WEIGHT = 0.3
 SUBORDINATOR_WEIGHT = 1.0
 
@@ -172,16 +182,25 @@ _ALLCAPS_NOISE = frozenset({"US", "UK", "OK", "I", "A", "USA"})
 
 def find_entities(text: str) -> set[str]:
     """Title-Case multi-word phrases AND all-caps acronyms. Filters
-    obvious non-entities (sentence-leading pronouns, weekdays, months,
-    common all-caps words like 'US', 'OK').
+    obvious non-entities (sentence-leading single-word openers like
+    "May" / "From" / "Let" used as pronouns/conjunctions/imperatives,
+    common all-caps words like 'US' / 'OK').
+
+    The v1.8.3 correction (CODE-AUDIT-403): only filter when the WHOLE
+    phrase is a single token matching an opener. Previously, the filter
+    dropped multi-word entities like "May Tech Co" because the first
+    token "May" was in _COMMON_OPENERS; now multi-word phrases survive
+    the filter (they are likely real entities, not sentence openers).
     """
     found = ENTITY_RE.findall(text)
     out: set[str] = set()
     for e in found:
         if len(e) <= 2:
             continue
-        first = e.split()[0]
-        if first in _COMMON_OPENERS:
+        tokens = e.split()
+        # Filter single-token openers ("May arrived early." -> drop "May").
+        # Keep multi-token phrases ("May Tech Co launched" -> keep).
+        if len(tokens) == 1 and tokens[0] in _COMMON_OPENERS:
             continue
         if e.isupper() and e in _ALLCAPS_NOISE:
             continue
@@ -215,10 +234,12 @@ def count_forward_references(text: str) -> int:
 def avg_clause_depth(text: str) -> float:
     """Average weighted clause-marker count per sentence.
 
-    Subordinator words (which, that, who, ...) score 1.0 each. Punctuation
-    boundaries (comma, semicolon, parens) score 0.3 each. The weighting
-    prevents enumeration commas ("red, white, and blue") from inflating the
-    metric the way a uniform weight would. Closes FIND-013.
+    Subordinator words (which, that, who, because, while, when, if, ...)
+    score SUBORDINATOR_WEIGHT (1.0) each, matched as whole words via regex
+    so sentence-start fronted clauses are detected. Punctuation boundaries
+    (comma, semicolon, opening paren) score PUNCTUATION_WEIGHT (0.3) each.
+    The weighting prevents enumeration commas ("red, white, and blue")
+    from inflating the metric (FIND-013, v1.8.3 corrections).
     """
     sentences = re.split(r"[.!?]+\s+", text)
     sentences = [s for s in sentences if s.strip()]
@@ -226,11 +247,9 @@ def avg_clause_depth(text: str) -> float:
         return 0.0
     total = 0.0
     for sentence in sentences:
-        low = sentence.lower()
         for marker in PUNCTUATION_MARKERS:
             total += sentence.count(marker) * PUNCTUATION_WEIGHT
-        for marker in SUBORDINATOR_MARKERS:
-            total += low.count(marker) * SUBORDINATOR_WEIGHT
+        total += len(_SUBORDINATOR_RE.findall(sentence)) * SUBORDINATOR_WEIGHT
     return round(total / len(sentences), 2)
 
 

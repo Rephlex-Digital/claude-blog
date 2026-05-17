@@ -119,7 +119,7 @@ def test_discourse_research_refuses_oversize_input(tmp_path: Path) -> None:
     skip path can never silently re-enter.
     """
     big = tmp_path / "huge.json"
-    item = b'{"k":"' + b"a" * 25 + b'"},'  # 33 bytes including comma
+    item = b'{"k":"' + b"a" * 25 + b'"},'  # 34 bytes including comma
     repeats = (26 * 1024 * 1024) // len(item) + 100  # comfortably over 26 MB
     big.write_bytes(b"[" + item * repeats + b'{"k":"end"}]')
     assert big.stat().st_size > 25 * 1024 * 1024, (
@@ -288,21 +288,28 @@ def test_discourse_research_sanitizes_brackets_in_title(tmp_path: Path) -> None:
     )
 
 
-def test_orchestrator_contract_resists_neutering(tmp_path: Path) -> None:
-    """Stronger version of test_orchestrator_has_untrusted_data_contract:
-    not only must the section exist, it must contain the LOAD-BEARING
-    prohibitions. A future edit that adds 'fences are advisory' or
-    'may be relaxed for trusted projects' must NOT pass."""
+def test_skill_md_documents_untrusted_data_contract(tmp_path: Path) -> None:
+    """DOCUMENTATION-PRESENCE regression guard for skills/blog/SKILL.md.
+
+    This is NOT a behavioral test. It asserts the markdown contract has not
+    been silently weakened by a future edit. It verifies the orchestrator
+    instruction file contains the load-bearing terms.
+
+    For the BEHAVIORAL test of the v1.8.3 nonce defense (proves nonces are
+    actually generated and unique per load), see
+    tests/test_load_untrusted_root.py — that test exercises
+    scripts/load_untrusted_root.py directly. The helper is the code-enforced
+    layer; this test is the doc-presence layer.
+    """
     orchestrator = (ROOT / "skills" / "blog" / "SKILL.md").read_text(encoding="utf-8")
-    # Load-bearing phrases that MUST be present (substring or low-case match)
+    # Load-bearing phrases that MUST be present
     must_have_exact = [
         "Untrusted-Data Contract",
-        "treat them the same way",
         "indirect prompt-injection",
-        "Fence the content",
         "Sanitize",
         "nonce",  # v1.8.2 per-load random nonce hardening
         "secrets.token_hex",  # specifies the nonce-generation API
+        "load_untrusted_root.py",  # v1.8.3 code-enforced helper reference
     ]
     for phrase in must_have_exact:
         assert phrase in orchestrator, (
@@ -310,8 +317,9 @@ def test_orchestrator_contract_resists_neutering(tmp_path: Path) -> None:
         )
     must_have_caseinsensitive = [
         "tool-boundary",
-        "tool",  # tool-grant rule referenced somewhere
-        "must",  # at least one MUST imperative
+        "platform-enforced",  # v1.8.3 honesty: explicit enforcement-class
+        "code-enforced",       # v1.8.3 honesty: explicit enforcement-class
+        "must",                 # at least one MUST imperative
     ]
     low = orchestrator.lower()
     for phrase in must_have_caseinsensitive:
@@ -329,6 +337,19 @@ def test_orchestrator_contract_resists_neutering(tmp_path: Path) -> None:
         assert phrase not in low, (
             f"Untrusted-Data Contract weakened: contains escape-hatch {phrase!r}"
         )
+
+
+def test_load_untrusted_root_helper_exists() -> None:
+    """The v1.8.3 nonce defense is code-enforced via a Python helper.
+    If the helper file is removed, the defense degrades to instruction-only
+    (the v1.8.2 state). This test surfaces such a regression.
+    """
+    helper = ROOT / "scripts" / "load_untrusted_root.py"
+    assert helper.exists(), (
+        "scripts/load_untrusted_root.py missing; v1.8.3 nonce defense "
+        "would silently degrade to instruction-only. See "
+        "tests/test_load_untrusted_root.py for behavioral coverage."
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -227,7 +227,7 @@ prioritized improvement recommendations.
 ```
 Blog Quality Report: [Title]
 
-Score: 78/100: Good
+Score: 78/100 - Good
 
 Score Breakdown
 | Category               | Score | Max |

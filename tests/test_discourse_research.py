@@ -235,5 +235,158 @@ def test_em_dash_in_snippet_does_not_leak_to_output(tmp_path: Path) -> None:
     assert "–" not in md, f"en-dash leaked: {md!r}"
 
 
+# ---------------------------------------------------------------------------
+# v1.8.3 regression tests (FIND-016 ambiguous-slash dates, FIND-017 cohesion,
+# parse_engagement direct pin)
+# ---------------------------------------------------------------------------
+
+
+def _import_module():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("discourse_research", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_parse_engagement_direct_call_pins_kmb_fix() -> None:
+    """Strengthened FIND-001 regression: call parse_engagement directly
+    and assert specific output, instead of indirectly via the brief.
+    The v1.8.0 bug returned 5_000_000_000 for '5 best ideas'."""
+    mod = _import_module()
+    assert mod.parse_engagement("5 best ideas") <= 5
+    assert mod.parse_engagement("10 books read") <= 10
+    assert mod.parse_engagement("200 buy") <= 200
+    assert mod.parse_engagement("1.5k upvotes") == 1500
+    assert mod.parse_engagement("450") == 450
+    assert mod.parse_engagement(None) == 0
+
+
+def test_parse_engagement_edge_cases() -> None:
+    """CODE-AUDIT-406 regression: negative numbers and scientific notation
+    must not silently produce nonsense scores."""
+    mod = _import_module()
+    # Negatives return 0 (engagement is non-negative; '-3 (deleted)' is a
+    # Reddit/HN convention for moderated content).
+    assert mod.parse_engagement("-500 upvotes") == 0
+    assert mod.parse_engagement("-3 (deleted)") == 0
+    assert mod.parse_engagement(-100) == 0
+    # Scientific notation is not supported; returns 0 instead of silently
+    # parsing '1.5' as the engagement value.
+    assert mod.parse_engagement("1.5e6 papers") == 0
+    # Numeric int / float inputs work, clamped to >= 0.
+    assert mod.parse_engagement(450) == 450
+    assert mod.parse_engagement(450.7) == 450
+
+
+def test_parse_date_rejects_ambiguous_us_eu_slash() -> None:
+    """FIND-016 regression: '02/03/2026' must NOT be parsed silently
+    (would drift ~30 days between US %m/%d/%Y and European %d/%m/%Y)."""
+    mod = _import_module()
+    assert mod.parse_date("02/03/2026") is None, (
+        "ambiguous slash date silently parsed; FIND-016 regression"
+    )
+    # ISO-8601 and unambiguous slash-ISO must still work.
+    assert mod.parse_date("2026-02-03") is not None
+    assert mod.parse_date("2026/02/03") is not None
+
+
+def test_cluster_cohesion_requires_multiple_shared_keywords(tmp_path: Path) -> None:
+    """FIND-017 regression: two items sharing only ONE peripheral keyword
+    must NOT form a multi-item cluster. The v1.8.1 greedy-clustering bug
+    grouped them on any keyword overlap."""
+    today = dt.date.today()
+    recent = (today - dt.timedelta(days=5)).isoformat()
+    results = [
+        {
+            "platform": "reddit",
+            "url": "https://r.com/a",
+            "title": "Docker kubernetes orchestration deep dive",
+            "snippet": "Kubernetes pods kubelet helm charts production setup.",
+            "date": recent, "engagement_proxy": "100",
+        },
+        {
+            "platform": "hackernews",
+            "url": "https://hn.com/b",
+            "title": "Docker terraform infrastructure provisioning",
+            "snippet": "Terraform modules providers state drift management.",
+            "date": recent, "engagement_proxy": "100",
+        },
+    ]
+    inp = tmp_path / "lonely.json"
+    inp.write_text(json.dumps(results), encoding="utf-8")
+    brief = _run(inp, "container tooling", fmt="json")
+    # Only 'docker' is shared. No multi-item cluster on docker should form.
+    for cluster in brief["themes_consensus"]:
+        assert (
+            cluster["item_count"] < 2 or cluster["theme"] != "docker"
+        ), f"FIND-017 regression: items sharing only 1 kw clustered: {cluster}"
+
+
+def test_cluster_cohesion_keeps_two_shared_keywords(tmp_path: Path) -> None:
+    """Positive case: two items sharing TWO keywords ('docker' + 'kubernetes')
+    must form a multi-item cluster (cohesion satisfied)."""
+    today = dt.date.today()
+    recent = (today - dt.timedelta(days=5)).isoformat()
+    results = [
+        {
+            "platform": "reddit",
+            "url": "https://r.com/a",
+            "title": "Docker kubernetes production tips",
+            "snippet": "Docker kubernetes deployment scaling pods nodes cluster.",
+            "date": recent, "engagement_proxy": "100",
+        },
+        {
+            "platform": "hackernews",
+            "url": "https://hn.com/b",
+            "title": "Production docker kubernetes setup",
+            "snippet": "Kubernetes docker pods nodes scaling deployment cluster.",
+            "date": recent, "engagement_proxy": "100",
+        },
+    ]
+    inp = tmp_path / "cohesive.json"
+    inp.write_text(json.dumps(results), encoding="utf-8")
+    brief = _run(inp, "production deployment", fmt="json")
+    # Some cluster of >= 2 items should exist (in new / consensus / niche).
+    total_multi = sum(
+        c["item_count"]
+        for bucket in ("themes_new", "themes_consensus", "themes_niche")
+        for c in brief[bucket]
+        if c["item_count"] >= 2
+    )
+    assert total_multi >= 2, (
+        f"genuinely cohesive items did not cluster: {brief}"
+    )
+
+
+def test_duplicate_urls_do_not_collide_in_cluster_index() -> None:
+    """CODE-AUDIT-405 regression (in-process): items with duplicate or
+    empty urls must use synthetic per-index keys in the inverted index.
+    Tests cluster_by_theme directly (bypasses the validator which would
+    reject empty-url items at the CLI surface)."""
+    mod = _import_module()
+    # Three items with the SAME url and DIFFERENT topics. Without synthetic
+    # keys (v1.8.2 bug), they share a single dict slot and produce phantom
+    # cohesion. With synthetic keys, each gets its own keyword set.
+    items = [
+        {"platform": "web", "url": "https://example.com",
+         "title": "Python tooling deep dive",
+         "snippet": "Python venv pip wheel package manager workflow"},
+        {"platform": "web", "url": "https://example.com",
+         "title": "Rust memory safety story",
+         "snippet": "Rust ownership lifetime borrow checker compile"},
+        {"platform": "web", "url": "https://example.com",
+         "title": "Go concurrency primitives",
+         "snippet": "Go goroutine channel select context cancel"},
+    ]
+    clusters = mod.cluster_by_theme(items, "languages comparison")
+    # No multi-item cluster should form: the three items share no keywords.
+    for c in clusters:
+        assert len(c["items"]) < 3, (
+            f"duplicate-url items phantom-clustered: {c}"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

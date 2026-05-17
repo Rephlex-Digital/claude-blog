@@ -213,7 +213,7 @@ Default output format (Markdown):
 ```
 ## Blog Quality Report: [Title]
 
-**Score: [X]/100**: [Rating]
+**Score: [X]/100** - [Rating]
 
 ### Score Breakdown
 | Category | Score | Max | Notes |
@@ -229,7 +229,7 @@ Default output format (Markdown):
 - **Burstiness score**: [X]/10 ([human-like / moderate / flat])
 - **AI phrases detected**: [N] ([list phrases found])
 - **Vocabulary diversity (TTR)**: [X] ([high / acceptable / low])
-- **AI probability**: [X]%: [No concern / Review recommended / High risk]
+- **AI probability**: [X]% - [No concern / Review recommended / High risk]
 - **Flagged passages**: [quote specific flat or formulaic sections, if any]
 
 ### Issues Found

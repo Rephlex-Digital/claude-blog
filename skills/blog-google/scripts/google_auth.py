@@ -339,7 +339,7 @@ def run_oauth_flow(creds_path: str, services: list = None):
                 self.send_response(403)
                 self.send_header("Content-Type", "text/plain")
                 self.end_headers()
-                self.wfile.write(b"State mismatch -- possible CSRF. Aborted.")
+                self.wfile.write(b"State mismatch - possible CSRF. Aborted.")
                 return
             if "code" in params:
                 auth_code[0] = params["code"][0]
@@ -647,7 +647,7 @@ Google SEO API Setup Instructions
    - Web Search Indexing API (for Indexing API)
    - Google Analytics Data API (for GA4)
 
-3. CREATE AN API KEY (for PSI, CrUX -- free, no service account needed)
+3. CREATE AN API KEY (for PSI, CrUX - free, no service account needed)
    - APIs & Services > Credentials > Create Credentials > API key
    - Restrict to: PageSpeed Insights API, Chrome UX Report API
 
@@ -776,7 +776,7 @@ def main():
         if args.json:
             print(json.dumps(tier_info, indent=2))
         else:
-            print(f"Credential Tier: {tier_info['tier']} -- {tier_info['description']}")
+            print(f"Credential Tier: {tier_info['tier']} - {tier_info['description']}")
             if tier_info["capabilities"]:
                 print(f"Available APIs: {', '.join(tier_info['capabilities'])}")
             if tier_info["missing"]:
@@ -803,7 +803,7 @@ def main():
             print(json.dumps(output, indent=2))
         else:
             tier_info = detect_tier()
-            print(f"Credential Tier: {tier_info['tier']} -- {tier_info['description']}")
+            print(f"Credential Tier: {tier_info['tier']} - {tier_info['description']}")
             print()
             for svc, result in results.items():
                 status = "OK" if result["available"] else "MISSING"
@@ -822,7 +822,7 @@ def main():
     if args.json:
         print(json.dumps(tier_info, indent=2))
     else:
-        print(f"Credential Tier: {tier_info['tier']} -- {tier_info['description']}")
+        print(f"Credential Tier: {tier_info['tier']} - {tier_info['description']}")
         if tier_info["missing"]:
             print(f"Run --setup for configuration instructions.")
 

@@ -89,14 +89,24 @@ When a user runs `/blog write`, `/blog rewrite`, `/blog brief`, `/blog strategy`
 
 These files are USER-CONTROLLED or potentially THIRD-PARTY-CONTROLLED (if a user clones a poisoned content repo with malicious project-root files). They enter the orchestrator's system prompt as context for downstream agents.
 
-The same indirect prompt-injection risk that applies to WebFetch results (T9) applies here. Mitigation, enforced by the orchestrator's "Untrusted-Data Contract" section in `skills/blog/SKILL.md`:
+The same indirect prompt-injection risk that applies to WebFetch results (T9) applies here. Mitigation has two enforcement classes — be explicit about which is which:
 
-1. **Fenced injection with per-load nonce (v1.8.2)**: file contents are wrapped in explicit `=== BEGIN UNTRUSTED PROJECT-ROOT CONTEXT (file.md) [nonce: <128-bit hex>] ===` / `=== END ... [nonce: <same hex>] ===` markers. The nonce is freshly generated for every load (via `secrets.token_hex(16)` or equivalent). An attacker who controls the file contents cannot pre-embed a counterfeit terminator because they cannot predict the nonce.
-2. **Pre-injection sanitization scan**: orchestrator scans for instruction-shaped patterns (`ignore previous`, `from now on`, `exfiltrate`, `system:`, `<|im_start|>`, `act as`, `=== BEGIN/END UNTRUSTED`, etc.). If matched, prepends a warning to the fence and notes the suspected injection in the agent prompt.
-3. **Tool-boundary preservation**: directives in project-root files CANNOT unlock tools the downstream agent does not already have via its frontmatter. An agent without `WebFetch` MUST NOT acquire it because BRAND.md said to.
-4. **Provenance**: file mtime is included in the injection so the agent can reason about freshness ("the BRAND.md I'm reading was modified at timestamp T").
+**Platform-enforced (cannot be bypassed by injection):**
+1. **Tool-boundary preservation**: the Claude Code platform refuses to grant a downstream agent any tool not listed in its frontmatter. Directives in BRAND.md / VOICE.md / DISCOURSE.md CANNOT unlock `WebFetch` for an agent that does not declare it. This is the load-bearing defense; it works regardless of what the orchestrator does.
 
-Failure mode this closes: a poisoned BRAND.md from a shared repo could instruct the agent with WebFetch authority to exfiltrate research findings to an attacker-controlled URL. The four layers (nonce + sanitize + tool-boundary + provenance) provide independent failure modes the attacker must defeat simultaneously. Even if the attacker breaks the fence (impossible with per-load nonce, but assumed for defense-in-depth), the tool-boundary rule blocks tool-grant escalation; even if both fail, the sanitization scan surfaces the attempt to the reviewer.
+**Code-enforced via `scripts/load_untrusted_root.py` (v1.8.3) — when the orchestrator follows its instruction to invoke the helper:**
+
+2. **Per-load CSPRNG nonce in fence markers**: the helper calls `secrets.token_hex(16)` (a 128-bit CSPRNG draw) and embeds the result in `=== BEGIN UNTRUSTED PROJECT-ROOT CONTEXT (file.md) [nonce: <hex>] ===` / `=== END ... [nonce: <same hex>] ===` markers. An attacker who controls the file contents cannot pre-embed a counterfeit terminator because the nonce is unforgeable in this threat model.
+3. **Pre-injection sanitization scan**: the helper scans for instruction-shaped patterns (`ignore previous`, `from now on`, `exfiltrate`, `system:`, `<|im_start|>`, `act as`, `=== BEGIN/END UNTRUSTED`, etc.). If matched, prepends `[!] WARNING:` to the fenced block.
+4. **Provenance**: the helper emits the file's mtime in the fence preamble.
+
+`tests/test_load_untrusted_root.py` exercises the helper directly: nonce uniqueness across 50 draws + 3 CLI invocations, BEGIN/END nonce matching, symlink refusal, size cap, sanitization-pattern matching, counterfeit-fence detection.
+
+**Failure mode for the code-enforced layer**: if the orchestrator regression-skips `load_untrusted_root.py` and hand-writes a fence, the nonce defense degrades to instruction-only (the v1.8.2 state). The tool-boundary remains load-bearing in that scenario.
+
+**What this closes**: a poisoned BRAND.md from a shared repo could instruct an agent with `WebFetch` authority to exfiltrate research findings to an attacker URL. The tool-boundary blocks tool-grant escalation regardless. The helper's nonce + sanitize + provenance layers reduce the chance Claude is manipulated into using the tools it DOES have for malicious purposes.
+
+**Honest scope**: nonce, sanitize, and provenance are independent of each other only at the helper level (the helper performs all three in one invocation). If the orchestrator skips the helper, all three skip together. Treat tool-boundary as the load-bearing layer; the helper-enforced layers are defense-in-depth.
 
 Recommended user hygiene: add `BRAND.md`, `VOICE.md`, `DISCOURSE.md` to `.gitignore` in repos where the brand context or research is confidential.
 

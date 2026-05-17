@@ -73,7 +73,7 @@ content. For every 1 promotional post, you need 9 genuine contributions
 
 **Example post structure**:
 ```
-Title: [Specific finding]: [context/data point]
+Title: [Specific finding] - [context/data point]
 
 TL;DR: [2-3 sentence summary with key stats]
 
@@ -364,7 +364,7 @@ and early traffic signals that benefit both traditional and AI search.
 
 ---
 
-*What are you seeing in your own data? Reply to this email: I read every response.*
+*What are you seeing in your own data? Reply to this email. I read every response.*
 ```
 
 ### Email Performance Benchmarks

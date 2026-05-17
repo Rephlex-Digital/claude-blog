@@ -108,7 +108,7 @@ When multiple retrieved sources cite the same upstream source (e.g. five article
    - Write a descriptive alt text sentence
    - Note relevance to the blog topic
 
-### Image URL Verification (Required: Never Skip)
+### Image URL Verification (Required, Never Skip)
 
 After finding each candidate image URL:
 

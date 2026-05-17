@@ -49,7 +49,7 @@ Output JSON schema:
       "useful_count": M
     }
 
-The script enforces LAW 2 (no invented titles -- titles come verbatim from
+The script enforces LAW 2 (no invented titles - titles come verbatim from
 input data; never paraphrased), LAW 3 (no em-dashes in output), and LAW 5
 (every source is rendered as inline markdown link [name](url)).
 """
@@ -103,9 +103,9 @@ STOPWORDS = {
 }
 
 EM_DASH_REPLACEMENTS = {
-    "—": " - ",  # em-dash
-    "–": " - ",  # en-dash
-    " -- ": " - ",
+    "—": " - ",   # unicode em-dash
+    "–": " - ",   # unicode en-dash
+    " -- ": " - ",  # ASCII double-hyphen (LAW 3); space-flanked only
 }
 
 
@@ -345,17 +345,31 @@ def parse_date(value: Any) -> dt.date | None:
 def parse_engagement(value: Any) -> int:
     """Best-effort numeric parse of engagement strings like '1.2k', '450 upvotes'.
 
-    The suffix [kmb] is anchored: a letter must appear DIRECTLY after the
-    digits (no separating whitespace) AND must be terminal in its token.
-    This prevents the FIND-001 catastrophe where '5 best ideas' parsed as
-    5,000,000,000 because the regex matched 'b' from 'best'.
+    Defenses (FIND-001 + CODE-AUDIT-406 v1.8.3 hardening):
+    * Anchored suffix [kmb] (digit-immediate-letter, terminal at token end)
+      to prevent '5 best ideas' parsing as 5,000,000,000.
+    * Negative numbers return 0 (engagement is conventionally non-negative;
+      a leading `-` likely means "deleted" or "[score hidden]"; abs() would
+      silently invert sign).
+    * Scientific notation ('1.5e6') is not supported by the regex and
+      returns 0 (silent fallback was wrong; explicit rejection is safer).
+    * Numeric inputs are clamped to >= 0.
     """
     if value is None:
         return 0
     if isinstance(value, (int, float)):
-        return int(value)
+        n = int(value)
+        return max(0, n)
     s = str(value).lower().replace(",", "")
-    # Anchored suffix: digit-immediate-letter, terminated by non-letter or end-of-token.
+    # Reject explicit negatives before regex pickup ('-3 upvotes' -> 0).
+    if re.search(r"-\s*\d", s):
+        return 0
+    # Reject scientific notation entirely (the [kmb] suffix regex would
+    # otherwise match the mantissa and ignore the exponent, producing
+    # nonsense scores like '1.5e6 papers' -> 1).
+    if re.search(r"\d+(?:\.\d+)?e[+-]?\d+", s):
+        return 0
+    # Anchored suffix: digit-immediate-letter, terminated by non-alnum or end-of-token.
     m = re.search(r"\b(\d+(?:\.\d+)?)([kmb])?(?![a-z0-9])", s)
     if not m:
         return 0
@@ -421,72 +435,105 @@ def extract_theme_keywords(text: str, topic_tokens: set[str], top_n: int = 5) ->
 
 CLUSTER_MIN_SIZE_FOR_MULTI_KEYWORD = 2  # 2+ shared keywords required for groups of size >= 2
 
+
 def cluster_by_theme(
     items: list[dict[str, Any]],
     topic: str,
 ) -> list[dict[str, Any]]:
     """Bucket items by shared keyword themes.
 
-    Improvement over v1.8.1 (FIND-017): instead of greedy single-keyword
-    assignment, an item joins a multi-item cluster only if it shares the
-    cluster keyword AND at least one additional keyword with another item
-    already in the cluster. This produces more cohesive themes when an
-    item touches multiple keywords. Singleton clusters (one item, one
-    keyword) are still kept so isolated themes surface in the niche bucket.
+    v1.8.3 corrections vs v1.8.2 (FIND-017 + CODE-AUDIT-404 + 405):
+    * Build an inverted keyword index once, so cohesion check is
+      O(n * unique_kw_per_item) instead of O(n^2). At MAX_ITEMS=10000 with
+      ~5 kws per item, this is ~50k ops vs ~100M.
+    * Items with empty or duplicate URLs use synthetic per-index keys so
+      keyword maps no longer collide (the v1.8.2 bug produced phantom
+      cohesion for unscraped/syndicated items).
     """
     topic_tokens = set(topic.lower().split())
+    # item_key -> set of keywords for that specific item
     item_keywords: dict[str, set[str]] = {}
-    keyword_to_items: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for item in items:
+    # keyword -> set of item_keys carrying that keyword (inverted index)
+    keyword_to_keys: dict[str, set[str]] = defaultdict(set)
+    # item_key -> the item dict (preserves ordering for emit)
+    key_to_item: dict[str, dict[str, Any]] = {}
+    # keyword -> ordered list of item_keys (preserves emit order)
+    keyword_to_keys_ordered: dict[str, list[str]] = defaultdict(list)
+
+    # Track first-seen URLs so duplicates get synthetic per-index keys
+    # instead of colliding in item_keywords (CODE-AUDIT-405). Empty URLs
+    # always use synthetic keys.
+    seen_urls: set[str] = set()
+    for idx, item in enumerate(items):
         text = f"{item.get('title', '')} {item.get('snippet', '')}"
         kws = set(extract_theme_keywords(text, topic_tokens))
-        url = item.get("url", "")
-        if url:
-            item_keywords[url] = kws
+        url = item.get("url") or ""
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            key = url
+        else:
+            key = f"_synthetic_{idx}"
+        item_keywords[key] = kws
+        key_to_item[key] = item
         for kw in kws:
-            keyword_to_items[kw].append(item)
+            if key not in keyword_to_keys[kw]:
+                keyword_to_keys[kw].add(key)
+                keyword_to_keys_ordered[kw].append(key)
 
     clusters: list[dict[str, Any]] = []
-    used_urls: set[str] = set()
-    for kw, group in sorted(
-        keyword_to_items.items(),
+    used_keys: set[str] = set()
+    for kw, ordered_keys in sorted(
+        keyword_to_keys_ordered.items(),
         key=lambda kv: (-len(kv[1]), kv[0]),
     ):
-        unique_group = [g for g in group if g.get("url") not in used_urls]
-        if not unique_group:
+        unique_keys = [k for k in ordered_keys if k not in used_keys]
+        if not unique_keys:
             continue
-        # Multi-keyword cohesion check for clusters that would have 2+ items.
-        if len(unique_group) >= CLUSTER_MIN_SIZE_FOR_MULTI_KEYWORD:
-            cohesive = _filter_cohesive(unique_group, kw, item_keywords)
-            if cohesive:
-                unique_group = cohesive
-        for g in unique_group:
-            used_urls.add(g.get("url", ""))
-        clusters.append({"theme": kw, "items": unique_group})
+        if len(unique_keys) >= CLUSTER_MIN_SIZE_FOR_MULTI_KEYWORD:
+            cohesive_keys = _filter_cohesive_indexed(
+                unique_keys, kw, item_keywords, keyword_to_keys
+            )
+            # v1.8.3 FIND-017 strict interpretation: if multi-item group fails
+            # cohesion, do NOT emit a multi-item cluster on this keyword.
+            # Skip; items remain unassigned and can singleton-cluster later
+            # on a different keyword that genuinely binds them.
+            if not cohesive_keys:
+                continue
+            unique_keys = cohesive_keys
+        for k in unique_keys:
+            used_keys.add(k)
+        clusters.append({
+            "theme": kw,
+            "items": [key_to_item[k] for k in unique_keys],
+        })
     return clusters
 
 
-def _filter_cohesive(
-    group: list[dict[str, Any]],
+def _filter_cohesive_indexed(
+    candidate_keys: list[str],
     primary_kw: str,
     item_keywords: dict[str, set[str]],
-) -> list[dict[str, Any]]:
-    """Keep items that share at least one additional keyword with another
-    item in the group. The primary keyword is excluded from the shared count
-    since every item in the group has it by construction.
+    keyword_to_keys: dict[str, set[str]],
+) -> list[str]:
+    """O(n * unique_kw_per_item) cohesion filter using the inverted index.
+
+    An item joins a multi-item cluster only if it shares at least one
+    NON-primary keyword with another item already in the candidate set.
     """
-    out: list[dict[str, Any]] = []
-    for item in group:
-        url = item.get("url", "")
-        my_kws = item_keywords.get(url, set()) - {primary_kw}
-        for other in group:
-            if other is item:
-                continue
-            other_url = other.get("url", "")
-            other_kws = item_keywords.get(other_url, set()) - {primary_kw}
-            if my_kws & other_kws:
-                out.append(item)
+    candidate_set = set(candidate_keys)
+    out: list[str] = []
+    for key in candidate_keys:
+        secondary_kws = item_keywords.get(key, set()) - {primary_kw}
+        cohesive = False
+        for kw in secondary_kws:
+            # Items sharing this keyword, intersected with the candidate set,
+            # minus self. If non-empty, this item has a partner.
+            partners = (keyword_to_keys.get(kw, set()) & candidate_set) - {key}
+            if partners:
+                cohesive = True
                 break
+        if cohesive:
+            out.append(key)
     return out
 
 

@@ -231,17 +231,17 @@ claim that can stand alone when quoted.
 
 ## Internal Link Architecture
 - **Link TO** (from this new post to existing pages):
-  1. [Page title/URL]: anchor text: "[descriptive anchor]"
-  2. [Page title/URL]: anchor text: "[descriptive anchor]"
-  3. [Page title/URL]: anchor text: "[descriptive anchor]"
-  4. [Page title/URL]: anchor text: "[descriptive anchor]"
-  5. [Page title/URL]: anchor text: "[descriptive anchor]"
+  1. [Page title/URL] - anchor text: "[descriptive anchor]"
+  2. [Page title/URL] - anchor text: "[descriptive anchor]"
+  3. [Page title/URL] - anchor text: "[descriptive anchor]"
+  4. [Page title/URL] - anchor text: "[descriptive anchor]"
+  5. [Page title/URL] - anchor text: "[descriptive anchor]"
 - **Link FROM** (update these existing pages to link to this new post):
-  1. [Page title/URL]: anchor text: "[descriptive anchor]"
-  2. [Page title/URL]: anchor text: "[descriptive anchor]"
-  3. [Page title/URL]: anchor text: "[descriptive anchor]"
-  4. [Page title/URL]: anchor text: "[descriptive anchor]"
-  5. [Page title/URL]: anchor text: "[descriptive anchor]"
+  1. [Page title/URL] - anchor text: "[descriptive anchor]"
+  2. [Page title/URL] - anchor text: "[descriptive anchor]"
+  3. [Page title/URL] - anchor text: "[descriptive anchor]"
+  4. [Page title/URL] - anchor text: "[descriptive anchor]"
+  5. [Page title/URL] - anchor text: "[descriptive anchor]"
 - **Pillar connection**: [Which pillar page this belongs to, if applicable]
 - **Cluster position**: [Hub / Spoke / Standalone]
 

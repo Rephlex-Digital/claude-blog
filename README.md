@@ -53,7 +53,7 @@ install.sh and pin a release tag, closing audit VULN-005):
 ```bash
 git clone https://github.com/AgriciDaniel/claude-blog.git
 cd claude-blog
-git checkout v1.8.1          # pin to a release tag (latest as of 2026-05-17)
+git checkout v1.8.3          # pin to a release tag (latest as of 2026-05-17)
 chmod +x install.sh && ./install.sh
 ```
 
