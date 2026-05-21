@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/7Q4GaSgUFHo"><img src="https://img.youtube.com/vi/7Q4GaSgUFHo/maxresdefault.jpg" alt="Watch the Claude Blog v1.9.1 walkthrough on YouTube" width="640"></a>
+  <a href="https://youtu.be/7Q4GaSgUFHo"><img src="https://claude-blog.md/assets/blog/claude-blog-v191-release-hero.webp" alt="Watch the Claude Blog v1.9.1 walkthrough on YouTube" width="640"></a>
 </p>
 
 <p align="center">
