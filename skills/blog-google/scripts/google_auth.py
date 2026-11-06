@@ -127,8 +127,28 @@ def load_config() -> dict:
         except (json.JSONDecodeError, IOError) as e:
             print(f"Warning: Could not read config file: {e}", file=sys.stderr)
 
+    # Per-client account (Rephlex): CLAUDE_SEO_CLIENT=<slug> applies the
+    # clients.<slug> entry of the config file (its service_account_path, and
+    # ga4_property_id / default_property if set) over the top-level values.
+    # A named client with no key entry is refused, never swapped for the
+    # default account. Unset, behaviour is unchanged.
+    client = os.environ.get("CLAUDE_SEO_CLIENT")
+    client_missing = False
+    if client:
+        entry = (config.get("clients") or {}).get(client) or {}
+        if entry.get("service_account_path"):
+            config.update({k: v for k, v in entry.items() if v})
+        else:
+            client_missing = True
+            config["service_account_path"] = None
+            print(
+                f"Error: CLAUDE_SEO_CLIENT={client} but {CONFIG_PATH} has no "
+                f"clients.{client}.service_account_path",
+                file=sys.stderr,
+            )
+
     # Environment variable fallbacks
-    if not config["service_account_path"]:
+    if not config["service_account_path"] and not client_missing:
         config["service_account_path"] = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
     if not config["api_key"]:
